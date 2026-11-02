@@ -1,0 +1,195 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>TacticalPad Clone - Partido</title>
+<link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+<div id="app">
+  <header class="topbar">
+    <div class="brand">TacticalPad Clone</div>
+    <div class="top-actions">
+      <button onclick="location.href='index.html'" style="background:#e63946;color:#fff;font-weight:bold;">Regresar</button>
+      <button id="btnNewProject">Nuevo</button>
+      <button id="btnOpenProject">Abrir</button>
+      <input type="file" id="fileOpen" accept="application/json" hidden />
+      <button id="btnSaveProject">Guardar</button>
+      <button id="btnExportImage">Exportar Imagen</button>
+      <button id="btnExportVideo">Exportar Video</button>
+      <button id="btnPresentation">Presentación</button>
+      <button id="btn3D">Vista 3D</button>
+      <button id="btnVideo">Video</button>
+    </div>
+  </header>
+
+  <div class="layout">
+    <aside class="sidebar left">
+      <section>
+        <h3>Herramientas</h3>
+        <div class="toolgrid">
+          <button class="tool active" data-tool="select">Seleccionar</button>
+          <button class="tool" data-tool="fasthome">Rápido Local</button>
+          <button class="tool" data-tool="fastaway">Rápido Visit.</button>
+          <button class="tool" data-tool="pen">Lápiz</button>
+          <button class="tool" data-tool="line">Línea</button>
+          <button class="tool" data-tool="arrow">Flecha</button>
+          <button class="tool" data-tool="eraser">Borrador</button>
+          <button class="tool" data-tool="clearink">Borrar tinta</button>
+        </div>
+        <div class="row">
+          <label>Color lápiz</label>
+          <input type="color" id="penColor" value="#ffffff" />
+        </div>
+        <div class="row">
+          <label>Grosor</label>
+          <input type="range" id="penSize" min="1" max="12" value="3" />
+        </div>
+        <div class="row">
+          <label>Color flecha</label>
+          <input type="color" id="arrowColor" value="#ffcc00" />
+        </div>
+      </section>
+      <section>
+        <h3>Equipos</h3>
+        <div class="teambox">
+          <div class="teamhead home">Local</div>
+          <input id="homeName" placeholder="Nombre local" />
+          <input type="color" id="homeColor" value="#e63946" />
+          <div id="homeRoster" class="roster"></div>
+          <button id="addHomePlayer">+ Jugador</button>
+        </div>
+        <div class="teambox">
+          <div class="teamhead away">Visitante</div>
+          <input id="awayName" placeholder="Nombre visitante" />
+          <input type="color" id="awayColor" value="#1d3557" />
+          <div id="awayRoster" class="roster"></div>
+          <button id="addAwayPlayer">+ Jugador</button>
+        </div>
+      </section>
+      <section>
+        <h3>Materiales (tareas)</h3>
+        <div class="toolgrid">
+          <button class="mat" data-mat="goal">Portería</button>
+          <button class="mat" data-mat="cone">Cono</button>
+          <button class="mat" data-mat="marker">Chino</button>
+          <button class="mat" data-mat="ladder">Escalera</button>
+          <button class="mat" data-mat="pole">Pica</button>
+          <button class="mat" data-mat="hurdle">Valla</button>
+          <button class="mat" data-mat="ball">Balón</button>
+        </div>
+        <p class="hint">Selecciona un material y haz clic en el campo para colocarlo. Arrastra para mover. Clic derecho para eliminar. Rueda del ratón sobre un material para agrandarlo o reducirlo.</p>
+      </section>
+      <section>
+        <h3>Opciones visuales</h3>
+        <label><input type="checkbox" id="optNames" checked /> Mostrar nombres</label>
+        <label><input type="checkbox" id="optBallPath" checked /> Trayectoria balón</label>
+        <label><input type="checkbox" id="optNumbers" checked /> Mostrar números</label>
+       <div class="row">
+         <label>Color material</label>
+         <div class="colorpicker">
+           <button id="matColorBtn" class="colorbtn" type="button" title="Color material"></button>
+           <div id="matColorPalette" class="colorpalette hidden"></div>
+         </div>
+       </div>
+       <div class="row">
+         <label>Rotación</label>
+         <input type="range" id="matRot" min="0" max="360" value="0" />
+       </div>
+      </section>
+    </aside>
+
+    <main class="center">
+      <div class="canvaswrap" id="canvasWrap">
+        <canvas id="board"></canvas>
+      </div>
+      <div class="playbar">
+        <button id="btnPrevFrame">◀</button>
+        <button id="btnPlay">Play</button>
+        <button id="btnNextFrame">▶</button>
+        <button id="btnAddFrame">+ Frame</button>
+        <button id="btnDupFrame">Duplicar</button>
+        <button id="btnDelFrame">Eliminar</button>
+        <span id="frameInfo">Frame 1/1</span>
+        <label>Velocidad</label>
+        <input type="range" id="speed" min="0.25" max="3" step="0.25" value="1" />
+        <span id="speedVal">1x</span>
+      </div>
+      <div class="frameslist" id="framesList"></div>
+    </main>
+
+    <aside class="sidebar right">
+      <section>
+        <h3>Tableros</h3>
+        <button id="btnNewFormation">+ Formación</button>
+        <button id="btnNewAnimation">+ Animación</button>
+        <div id="boardsList" class="boardslist"></div>
+      </section>
+      <section>
+        <h3>Notas</h3>
+        <textarea id="notes" placeholder="Notas tácticas..."></textarea>
+      </section>
+      <section>
+        <h3>Animación</h3>
+        <p class="hint">Crea frames con + Frame. Arrastra jugadores en cada frame. Play interpola.</p>
+      </section>
+    </aside>
+  </div>
+</div>
+
+<!-- 3D modal -->
+<div id="modal3d" class="modal hidden">
+  <div class="modal-content">
+    <div class="modal-header">
+      <span>Vista 3D</span>
+      <button id="close3d">Cerrar</button>
+    </div>
+    <div id="threeContainer"></div>
+  </div>
+</div>
+
+<!-- Video modal -->
+<div id="modalVideo" class="modal hidden">
+  <div class="modal-content">
+    <div class="modal-header">
+      <span>Análisis de Video</span>
+      <div>
+        <button id="loadVideo">Cargar video</button>
+        <input type="file" id="fileVideo" accept="video/*" hidden />
+        <button id="closeVideo">Cerrar</button>
+      </div>
+    </div>
+    <div class="video-body">
+      <div class="video-stage">
+        <video id="videoEl" controls></video>
+        <canvas id="videoOverlay"></canvas>
+      </div>
+      <div class="video-side">
+        <h4>Herramientas</h4>
+        <div class="toolgrid">
+          <button class="vtool active" data-vtool="pen">Lápiz</button>
+          <button class="vtool" data-vtool="eraser">Borrar todo</button>
+        </div>
+        <div class="row">
+          <label>Color</label>
+          <input type="color" id="vColor" value="#ff0000" />
+        </div>
+        <div class="row">
+          <label>Grosor</label>
+          <input type="range" id="vSize" min="1" max="12" value="3" />
+        </div>
+        <h4>Marcadores</h4>
+        <button id="addBookmark">+ Marcador</button>
+        <div id="bookmarks" class="boardslist"></div>
+        <textarea id="bookmarkComment" placeholder="Comentario del marcador..."></textarea>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+<script type="module" src="/app.js"></script>
+</body>
+</html>

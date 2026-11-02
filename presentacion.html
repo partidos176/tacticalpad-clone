@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Presentación - TacticalPad Clone</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/reveal.js@4.5.0/dist/reveal.css" />
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/reveal.js@4.5.0/dist/theme/black.css" />
+<style>
+  .reveal .slides section { text-align: left; }
+  .reveal iframe { width: 90%; height: 70vh; border: 2px solid #e94560; border-radius: 8px; }
+  .reveal .choices { display: flex; gap: 20px; justify-content: center; margin-top: 30px; }
+  .reveal .choice { padding: 20px 40px; background: #e94560; color: #fff; border: none; border-radius: 8px; font-size: 20px; cursor: pointer; }
+  .reveal .choice:hover { background: #ff5a7a; }
+</style>
+</head>
+<body>
+<div class="reveal">
+  <div class="slides">
+    <section>
+      <h1>TacticalPad Clone</h1>
+      <h3>Presentación de hojas</h3>
+      <p>Elige la hoja que quieres visualizar:</p>
+      <div class="choices">
+        <button class="choice" onclick="Reveal.slide(1)">Hoja Tareas</button>
+        <button class="choice" onclick="Reveal.slide(2)">Hoja TacticalPad Clone</button>
+      </div>
+    </section>
+    <section>
+      <h2>Hoja Tareas</h2>
+      <p>Ejercicios de entrenamiento con materiales (porterías, conos, chinos, escalera, picas, valla, balón y flechas).</p>
+      <iframe src="index.html"></iframe>
+    </section>
+    <section>
+      <h2>Hoja TacticalPad Clone</h2>
+      <p>Pizarra táctica: formaciones, animaciones, jugadores y análisis.</p>
+      <iframe src="index.html"></iframe>
+    </section>
+  </div>
+</div>
+<script src="https://cdn.jsdelivr.net/npm/reveal.js@4.5.0/dist/reveal.js"></script>
+<script>Reveal.initialize({ hash: true });</script>
+</body>
+</html>
