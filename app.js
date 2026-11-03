@@ -991,8 +991,35 @@ function showCtxMenu(x, y, it, f){
   btnColor.addEventListener('click', (ev)=>{
     ev.stopPropagation();
     menu.remove();
-    const palette = document.getElementById('matColorPalette');
-    if (palette) palette.classList.remove('hidden');
+    const pal = document.createElement('div');
+    pal.className = 'ctxmenu';
+    pal.style.left = (ev.clientX) + 'px';
+    pal.style.top = (ev.clientY) + 'px';
+    COLORS10.forEach(col=>{
+      const sw = document.createElement('button');
+      sw.textContent = '';
+      sw.style.background = col;
+      sw.style.width = '24px';
+      sw.style.height = '24px';
+      sw.style.border = '1px solid #888';
+      sw.style.cursor = 'pointer';
+      sw.addEventListener('click', (e2)=>{
+        e2.stopPropagation();
+        it.color = col;
+        if (state.selectedItem === it) {
+          const mcb = document.getElementById('matColorBtn');
+          if (mcb) mcb.style.background = col;
+        }
+        draw();
+        pal.remove();
+      });
+      pal.appendChild(sw);
+    });
+    document.body.appendChild(pal);
+    const closePal = (e2)=>{
+      if (!pal.contains(e2.target)){ pal.remove(); document.removeEventListener('click', closePal); }
+    };
+    setTimeout(()=>document.addEventListener('click', closePal),0);
   });
   menu.appendChild(btnColor);
 
@@ -1101,8 +1128,31 @@ function showDrawingCtxMenu(x, y, hit, f){
     ev.stopPropagation();
     menu.remove();
     state.selectedDrawing = hit;
-    const palette = document.getElementById('matColorPalette');
-    if (palette) palette.classList.remove('hidden');
+    const pal = document.createElement('div');
+    pal.className = 'ctxmenu';
+    pal.style.left = (ev.clientX) + 'px';
+    pal.style.top = (ev.clientY) + 'px';
+    COLORS10.forEach(col=>{
+      const sw = document.createElement('button');
+      sw.textContent = '';
+      sw.style.background = col;
+      sw.style.width = '24px';
+      sw.style.height = '24px';
+      sw.style.border = '1px solid #888';
+      sw.style.cursor = 'pointer';
+      sw.addEventListener('click', (e2)=>{
+        e2.stopPropagation();
+        if (hit.obj) hit.obj.color = col;
+        draw();
+        pal.remove();
+      });
+      pal.appendChild(sw);
+    });
+    document.body.appendChild(pal);
+    const closePal = (e2)=>{
+      if (!pal.contains(e2.target)){ pal.remove(); document.removeEventListener('click', closePal); }
+    };
+    setTimeout(()=>document.addEventListener('click', closePal),0);
   });
   menu.appendChild(btnColor);
 
@@ -1509,6 +1559,9 @@ document.getElementById('btnNewProject').addEventListener('click', ()=>{
   if (confirm('¿Nuevo proyecto? Se perderán cambios no guardados.')){
     state.boards=[]; state.activeBoardId=null; state.currentFrame=0;
     state.fastCounter={home:0,away:0};
+    state.taskName=''; state.taskCounter=1;
+    const notesEl=document.getElementById('notes'); if (notesEl) notesEl.value='';
+    renderTaskUI();
     newBoard('formation');
     initRosters();
     const hn=document.getElementById('homeName'); if (hn) hn.value=state.home.name;
@@ -1532,6 +1585,7 @@ document.getElementById('fileOpen').addEventListener('change', (e)=>{
       if (data.pitchType){ state.pitchType=data.pitchType; if (pitchSelectEl) pitchSelectEl.value=state.pitchType; loadPitchImage(state.pitchType); }
       if (typeof data.taskCounter === 'number') state.taskCounter = data.taskCounter;
       if (typeof data.taskName === 'string') state.taskName = data.taskName;
+      if (typeof data.notes === 'string'){ const n=document.getElementById('notes'); if (n) n.value = data.notes; }
       renderTaskUI();
       state.activeBoardId=state.boards.length?state.boards[0].id:null;
       state.currentFrame=0;
@@ -1551,7 +1605,8 @@ document.getElementById('btnSaveProject').addEventListener('click', ()=>{
   const name = (state.taskName || '').trim();
   if (!name){ alert('No se puede guardar sin nombre de tarea.'); return; }
   const safe = name.replace(/[<>:"/\\|?*]/g,'_');
-  const data={ sport:state.sport, pitchType:state.pitchType, taskCounter:state.taskCounter, taskName:state.taskName, home:state.home, away:state.away, boards:state.boards };
+  const notesVal = (document.getElementById('notes')?.value || '');
+  const data={ sport:state.sport, pitchType:state.pitchType, taskCounter:state.taskCounter, taskName:state.taskName, notes: notesVal, home:state.home, away:state.away, boards:state.boards };
   const blob=new Blob([JSON.stringify(data,null,2)],{type:'application/json'});
   const url=URL.createObjectURL(blob);
   const a=document.createElement('a'); a.href=url; a.download=safe+'.json'; a.click();
@@ -1559,11 +1614,27 @@ document.getElementById('btnSaveProject').addEventListener('click', ()=>{
 });
 
 document.getElementById('btnExportImage').addEventListener('click', ()=>{
-  const url=canvas.toDataURL('image/png');
-  const a=document.createElement('a'); a.href=url; a.download='tablero.png'; a.click();
+  const tmp=document.createElement('canvas');
+  tmp.width=canvas.width; tmp.height=canvas.height;
+  const tctx=tmp.getContext('2d');
+  tctx.drawImage(canvas,0,0);
+  tctx.fillStyle='#ffffff';
+  tctx.textAlign='left';
+  tctx.textBaseline='top';
+  let y=16;
+  tctx.font='bold 16px Arial';
+  tctx.fillText('TAREA ' + state.taskCounter + ' ' + (state.taskName || ''), 16, y); y+=22;
+  const notes=(document.getElementById('notes')?.value || '').trim();
+  tctx.font='12px Arial';
+  notes.split('\n').slice(0,5).forEach(line=>{
+    tctx.fillText(line, 16, y); y+=16;
+  });
+  const safeName = (state.taskName || 'tablero').replace(/[<>:"/\\|?*]/g,'_');
+  const url=tmp.toDataURL('image/png');
+  const a=document.createElement('a'); a.href=url; a.download=safeName+'.png'; a.click();
 });
 
-document.getElementById('btnExportVideo').addEventListener('click', async ()=>{
+document.getElementById('btnExportVideo')?.addEventListener('click', async ()=>{
   const b=getBoard();
   if (!b || b.frames.length<2){ alert('Se necesita una animación con al menos 2 frames.'); return; }
   // record playback once
@@ -1593,8 +1664,8 @@ document.getElementById('btnPresentation').addEventListener('click', ()=>{
 });
 
 // ---------- 3D ----------
-document.getElementById('btn3D').addEventListener('click', open3D);
-document.getElementById('close3d').addEventListener('click', ()=>document.getElementById('modal3d').classList.add('hidden'));
+document.getElementById('btn3D')?.addEventListener('click', open3D);
+document.getElementById('close3d')?.addEventListener('click', ()=>document.getElementById('modal3d')?.classList.add('hidden'));
 
 let threeScene=null, threeRenderer=null, threeCamera=null, controls=null;
 function open3D(){
@@ -1705,11 +1776,11 @@ let vTool = 'pen';
 let vDrawing = null;
 const bookmarks = [];
 
-document.getElementById('btnVideo').addEventListener('click', ()=>{
+document.getElementById('btnVideo')?.addEventListener('click', ()=>{
   videoModal.classList.remove('hidden');
   resizeOverlay();
 });
-document.getElementById('closeVideo').addEventListener('click', ()=>videoModal.classList.add('hidden'));
+document.getElementById('closeVideo')?.addEventListener('click', ()=>videoModal.classList.add('hidden'));
 document.getElementById('loadVideo').addEventListener('click', ()=>document.getElementById('fileVideo').click());
 document.getElementById('fileVideo').addEventListener('change', (e)=>{
   const f=e.target.files[0]; if(!f) return;
