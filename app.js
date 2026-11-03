@@ -6,6 +6,12 @@ const SPORTS = {
   soccer: { name: 'Fútbol', aspect: 105/68, drawPitch: drawSoccerPitch },
 };
 
+const PITCH_IMAGES = {
+  campo: '/campo%20completo%201.png',
+  medio: '/medio%20campo%201.png',
+  nada: '/limpio%201.png',
+};
+
 function uid(){ return 'id'+Math.random().toString(36).slice(2,9); }
 const TASK_MODE = (typeof window !== 'undefined') && (window.APP_MODE === 'tareas' || /tareas/i.test(location.pathname));
 
@@ -25,11 +31,28 @@ const state = {
   showNames: true,
   showBallPath: true,
   showNumbers: true,
+  pitchType: 'campo',
+  taskCounter: 1,
+  taskName: '',
+  pitchImg: null,
+  pitchImgRotate: false,
+  pitchImage: null,
+  backgroundImage: null,
+  bgImage: null,
+  boardImage: null,
+  image: null,
+  pitchImgAspect: null,
+  pitchImgLoaded: false,
   placeItem: null,
   selectedItem: null,
+  selectedDrawing: null,
+  _strokeClicked: null,
   copiedItem: null,
+  copiedDrawing: null,
   // interaction
   dragging: null,
+  dragMoved: false,
+  dragStart: null,
   drawing: null, // current in-progress shape
   fastCounter: { home: 0, away: 0 },
 };
@@ -76,6 +99,17 @@ function drawSoccerPitch(ctx, pr){
   ctx.strokeRect(pr.x+pr.w, pr.y+(pr.h-gh)/2, gw, gh);
 }
 
+function drawHalfPitch(ctx, pr){
+  // outline half field
+  ctx.strokeRect(pr.x, pr.y, pr.w, pr.h);
+  // goal at left
+  const gw = (pr.w*2)*0.02, gh = pr.h*0.18;
+  ctx.strokeRect(pr.x-gw, pr.y+(pr.h-gh)/2, gw, gh);
+  // penalty area
+  const pw = (pr.w*2)*0.16, ph = pr.h*0.44;
+  ctx.strokeRect(pr.x, pr.y+(pr.h-ph)/2, pw, ph);
+  // center line? no (half field)
+}
 function drawBasketPitch(ctx, pr){
   drawPitchBase(ctx, pr);
   ctx.beginPath();
@@ -141,7 +175,13 @@ window.addEventListener('resize', resizeCanvas);
 
 // ---------- Coordinate helpers ----------
 function pitchRect(){
-  const aspect = SPORTS[state.sport].aspect;
+  let aspect;
+  if (state.pitchImgLoaded && state.pitchImgAspect){
+    aspect = state.pitchImgAspect;
+  } else {
+    aspect = SPORTS[state.sport].aspect;
+    if (state.pitchType === 'medio') aspect = aspect / 2;
+  }
   const margin = 30;
   const availW = canvas.width - margin*2;
   const availH = canvas.height - margin*2;
@@ -198,41 +238,85 @@ function drawPlayer(p){
   }
 }
 
-function drawStroke(stroke){
-  if (!stroke || stroke.length<2) return;
+function drawStroke(stroke, highlight=false){
+  const pts = Array.isArray(stroke) ? stroke : (stroke && stroke.points);
+  if (!pts || pts.length<2) return;
   ctx.beginPath();
-  ctx.moveTo(normToCanvas(stroke[0].x,stroke[0].y).x, normToCanvas(stroke[0].x,stroke[0].y).y);
-  for (let i=1;i<stroke.length;i++){
-    const c = normToCanvas(stroke[i].x,stroke[i].y);
+  ctx.moveTo(normToCanvas(pts[0].x,pts[0].y).x, normToCanvas(pts[0].x,pts[0].y).y);
+  for (let i=1;i<pts.length;i++){
+    const c = normToCanvas(pts[i].x,pts[i].y);
     ctx.lineTo(c.x,c.y);
   }
-  ctx.strokeStyle = state.penColor;
-  ctx.lineWidth = state.penSize;
-  ctx.stroke();
-}
-
-function drawLine(l, arrow=false){
-  const a = normToCanvas(l.x1,l.y1);
-  const b = normToCanvas(l.x2,l.y2);
-  ctx.beginPath();
-  ctx.moveTo(a.x,a.y);
-  ctx.lineTo(b.x,b.y);
-  ctx.strokeStyle = l.color || state.arrowColor;
-  ctx.lineWidth = l.size || 2;
-  if (l.dashed) ctx.setLineDash([6,4]); else ctx.setLineDash([]);
+  if (highlight){
+    ctx.strokeStyle = 'rgba(255,215,0,0.9)';
+    ctx.lineWidth = ((stroke && stroke.size) || state.penSize) + 3;
+    ctx.setLineDash([]);
+  } else {
+    ctx.strokeStyle = (stroke && stroke.color) || state.penColor;
+    ctx.lineWidth = (stroke && stroke.size) || state.penSize;
+    ctx.setLineDash([]);
+  }
   ctx.stroke();
   ctx.setLineDash([]);
-  if (arrow){
-    // arrowhead
-    const ang = Math.atan2(b.y-a.y, b.x-a.x);
-    const hl = 12;
+}
+
+function drawArrowhead(x, y, ang, color){
+  const hl = 18;
+  ctx.beginPath();
+  ctx.moveTo(x, y);
+  ctx.lineTo(x - hl*Math.cos(ang-Math.PI/6), y - hl*Math.sin(ang-Math.PI/6));
+  ctx.lineTo(x - hl*Math.cos(ang+Math.PI/6), y - hl*Math.sin(ang+Math.PI/6));
+  ctx.closePath();
+  ctx.fillStyle = color || state.arrowColor;
+  ctx.fill();
+}
+function drawLine(l, arrow=false, highlight=false){
+  const a = normToCanvas(l.x1,l.y1);
+  const b = normToCanvas(l.x2,l.y2);
+  const color = l.color || state.arrowColor;
+  let ctrl = null;
+  if (l.deformed && typeof l.cx === 'number' && typeof l.cy === 'number'){
+    ctrl = normToCanvas(l.cx, l.cy);
+  }
+  ctx.beginPath();
+  ctx.moveTo(a.x,a.y);
+  if (ctrl){ ctx.quadraticCurveTo(ctrl.x, ctrl.y, b.x, b.y); }
+  else { ctx.lineTo(b.x,b.y); }
+  if (highlight){
+    ctx.strokeStyle = 'rgba(255,215,0,0.9)';
+    ctx.lineWidth = (l.size || 2) + 3;
+    if (l.dashed) ctx.setLineDash([6,4]); else ctx.setLineDash([]);
+  } else {
+    ctx.strokeStyle = color;
+    ctx.lineWidth = l.size || 2;
+    if (l.dashed) ctx.setLineDash([6,4]); else ctx.setLineDash([]);
+  }
+  ctx.lineCap = 'butt';
+  ctx.stroke();
+  ctx.setLineDash([]);
+  const arrowStart = (l.arrowStart === true) || (!l.hasOwnProperty('arrowStart') && l.type==='arrow' && false);
+  const arrowEnd = (l.arrowEnd === true) || arrow || (l.type==='arrow');
+  // for deformed curve, tangents
+  if (arrowStart){
+    let ang;
+    if (ctrl){ ang = Math.atan2(ctrl.y - a.y, ctrl.x - a.x); }
+    else { ang = Math.atan2(b.y - a.y, b.x - a.x); }
+    drawArrowhead(a.x, a.y, ang + Math.PI, color);
+  }
+  if (arrowEnd){
+    let ang;
+    if (ctrl){ ang = Math.atan2(b.y - ctrl.y, b.x - ctrl.x); }
+    else { ang = Math.atan2(b.y - a.y, b.x - a.x); }
+    drawArrowhead(b.x, b.y, ang, color);
+  }
+  // draw control point handle if deformed
+  if (ctrl){
     ctx.beginPath();
-    ctx.moveTo(b.x, b.y);
-    ctx.lineTo(b.x - hl*Math.cos(ang-Math.PI/6), b.y - hl*Math.sin(ang-Math.PI/6));
-    ctx.lineTo(b.x - hl*Math.cos(ang+Math.PI/6), b.y - hl*Math.sin(ang+Math.PI/6));
-    ctx.closePath();
-    ctx.fillStyle = l.color || state.arrowColor;
+    ctx.arc(ctrl.x, ctrl.y, 8, 0, Math.PI*2);
+    ctx.fillStyle = 'rgba(255,215,0,0.9)';
     ctx.fill();
+    ctx.strokeStyle = '#000';
+    ctx.stroke();
   }
 }
 
@@ -284,6 +368,10 @@ function drawItem(it){
     ctx.strokeStyle='#333'; ctx.stroke();
     ctx.fillStyle='#333';
     ctx.beginPath(); ctx.arc(0,0,2,0,Math.PI*2); ctx.fill();
+  } else if (it.type==='hoop'){
+    ctx.strokeStyle = col || '#ff8c00';
+    ctx.lineWidth = 3;
+    ctx.beginPath(); ctx.arc(0,0,14,0,Math.PI*2); ctx.stroke();
   }
   if (state.selectedItem === it){
     ctx.strokeStyle = 'rgba(255,215,0,0.9)';
@@ -298,12 +386,63 @@ function drawItem(it){
 }
 function drawFrame(f){
   if (!f) return;
+  const sd = state.selectedDrawing;
   // strokes
-  (f.strokes||[]).forEach(s=>drawStroke(s));
+  (f.strokes||[]).forEach(s=>{
+    const isSel = sd && sd.type==='stroke' && sd.obj === s;
+    drawStroke(s, false);
+    if (isSel){
+      const pts = Array.isArray(s) ? s : (s && s.points);
+      if (pts && pts.length){
+        const c = normToCanvas(pts[0].x, pts[0].y);
+        ctx.save();
+        ctx.strokeStyle='rgba(255,215,0,0.9)';
+        ctx.lineWidth=2;
+        ctx.setLineDash([4,4]);
+        ctx.beginPath();
+        ctx.arc(c.x,c.y,16,0,Math.PI*2);
+        ctx.stroke();
+        ctx.setLineDash([]);
+        ctx.restore();
+      }
+    }
+  });
   // lines
-  (f.lines||[]).forEach(l=>drawLine(l,false));
+  (f.lines||[]).forEach(l=>{
+    const isSel = sd && sd.type==='line' && sd.obj === l;
+    drawLine(l,false,false);
+    if (isSel){
+      const mx = (l.x1+l.x2)/2, my = (l.y1+l.y2)/2;
+      const c = normToCanvas(mx, my);
+      ctx.save();
+      ctx.strokeStyle='rgba(255,215,0,0.9)';
+      ctx.lineWidth=2;
+      ctx.setLineDash([4,4]);
+      ctx.beginPath();
+      ctx.arc(c.x,c.y,16,0,Math.PI*2);
+      ctx.stroke();
+      ctx.setLineDash([]);
+      ctx.restore();
+    }
+  });
   // arrows
-  (f.arrows||[]).forEach(a=>drawLine(a,true));
+  (f.arrows||[]).forEach(a=>{
+    const isSel = sd && sd.type==='arrow' && sd.obj === a;
+    drawLine(a,true,false);
+    if (isSel){
+      const mx = (a.x1+a.x2)/2, my = (a.y1+a.y2)/2;
+      const c = normToCanvas(mx, my);
+      ctx.save();
+      ctx.strokeStyle='rgba(255,215,0,0.9)';
+      ctx.lineWidth=2;
+      ctx.setLineDash([4,4]);
+      ctx.beginPath();
+      ctx.arc(c.x,c.y,16,0,Math.PI*2);
+      ctx.stroke();
+      ctx.setLineDash([]);
+      ctx.restore();
+    }
+  });
   // balls
   (f.balls||[]).forEach(b=>{
     const c = normToCanvas(b.x,b.y);
@@ -389,7 +528,22 @@ function draw(){
   ctx.fillStyle='#0d1b2a';
   ctx.fillRect(0,0,canvas.width,canvas.height);
   const pr = pitchRect();
-  SPORTS[state.sport].drawPitch(ctx, pr);
+  if (state.pitchImgLoaded && state.pitchImg){
+    if (state.pitchImgRotate){
+      ctx.save();
+      ctx.translate(pr.x + pr.w/2, pr.y + pr.h/2);
+      ctx.rotate(Math.PI/2);
+      ctx.drawImage(state.pitchImg, -pr.h/2, -pr.w/2, pr.h, pr.w);
+      ctx.restore();
+    } else {
+      ctx.drawImage(state.pitchImg, pr.x, pr.y, pr.w, pr.h);
+    }
+  } else if (state.pitchType === 'campo'){
+    SPORTS[state.sport].drawPitch(ctx, pr);
+  } else if (state.pitchType === 'medio'){
+    drawHalfPitch(ctx, pr);
+  }
+  // nada: sin campo
   const f = getRenderFrame();
   if (f){
     drawBallPath();
@@ -400,7 +554,9 @@ function draw(){
     if (state.drawing.type==='stroke'){
       drawStroke(state.drawing.points);
     } else if (state.drawing.type==='line' || state.drawing.type==='arrow'){
-      drawLine({x1:state.drawing.x1,y1:state.drawing.y1,x2:state.drawing.x2,y2:state.drawing.y2,color:state.arrowColor,size:state.penSize,dashed:false}, state.drawing.type==='arrow');
+      const a = normToCanvas(state.drawing.x1,state.drawing.y1);
+      const b = normToCanvas(state.drawing.x2,state.drawing.y2);
+      if (Math.hypot(b.x-a.x,b.y-a.y) > 5) drawLine({x1:state.drawing.x1,y1:state.drawing.y1,x2:state.drawing.x2,y2:state.drawing.y2,color:state.arrowColor,size:state.penSize,dashed:false}, state.drawing.type==='arrow');
     }
   }
 }
@@ -481,19 +637,35 @@ function findStrokeAt(cx,cy){
   for (let i=all.length-1;i>=0;i--){
     const e=all[i];
     if (e.type==='stroke'){
-      for (const pt of e.obj){
+      const pts = Array.isArray(e.obj) ? e.obj : (e.obj && e.obj.points);
+      const sz = (e.obj && e.obj.size) || state.penSize;
+      for (const pt of (pts||[])){
         const c=normToCanvas(pt.x,pt.y);
-        if (Math.hypot(c.x-cx,c.y-cy) <= Math.max(state.penSize+4, 8)) return e;
+        if (Math.hypot(c.x-cx,c.y-cy) <= Math.max(sz+4, 8)) return e;
       }
     } else {
       const l=e.obj;
-      const a=normToCanvas(l.x1,l.y1), b=normToCanvas(l.x2,l.y2);
-      // distance point to segment
-      const dx=b.x-a.x, dy=b.y-a.y;
-      const t = ((cx-a.x)*dx+(cy-a.y)*dy)/(dx*dx+dy*dy);
-      const cl = Math.max(0,Math.min(1,t));
-      const px=a.x+cl*dx, py=a.y+cl*dy;
-      if (Math.hypot(cx-px,cy-py) <= 8) return e;
+      if (l.deformed && typeof l.cx === 'number' && typeof l.cy === 'number'){
+        const a=normToCanvas(l.x1,l.y1), b=normToCanvas(l.x2,l.y2), c=normToCanvas(l.cx,l.cy);
+        let best=Infinity;
+        for (let i=0;i<=20;i++){
+          const t=i/20;
+          const x=(1-t)*(1-t)*a.x+2*(1-t)*t*c.x+t*t*b.x;
+          const y=(1-t)*(1-t)*a.y+2*(1-t)*t*c.y+t*t*b.y;
+          const d=Math.hypot(cx-x,cy-y);
+          if (d<best) best=d;
+        }
+        if (best <= 10) return e;
+        const cp=normToCanvas(l.cx,l.cy);
+        if (Math.hypot(cx-cp.x,cy-cp.y) <= 10) return e;
+      } else {
+        const a=normToCanvas(l.x1,l.y1), b=normToCanvas(l.x2,l.y2);
+        const dx=b.x-a.x, dy=b.y-a.y;
+        const t = ((cx-a.x)*dx+(cy-a.y)*dy)/(dx*dx+dy*dy);
+        const cl = Math.max(0,Math.min(1,t));
+        const px=a.x+cl*dx, py=a.y+cl*dy;
+        if (Math.hypot(cx-px,cy-py) <= 8) return e;
+      }
     }
   }
   return null;
@@ -509,6 +681,18 @@ canvas.addEventListener('mousedown', (e)=>{
   const f = currentFrameObj();
   if (!f) return;
 
+  // drag control point of deformed line
+  if (state.selectedDrawing && (state.selectedDrawing.type==='line' || state.selectedDrawing.type==='arrow') && state.selectedDrawing.obj && state.selectedDrawing.obj.deformed){
+    const o = state.selectedDrawing.obj;
+    const cp = normToCanvas(o.cx, o.cy);
+    if (Math.hypot(cp.x-cx, cp.y-cy) <= 8){
+      state.dragging = { control: o };
+      isDown = true;
+      draw();
+      return;
+    }
+  }
+
   // placement of material
   if (state.placeItem){
     const norm = canvasToNorm(cx,cy);
@@ -520,11 +704,40 @@ canvas.addEventListener('mousedown', (e)=>{
     }
     return;
   }
+  // Select drawing element (stroke/line/arrow) on click
+  const strokeHit = findStrokeAt(cx,cy);
+  if (strokeHit){
+    state.selectedDrawing = strokeHit;
+    state.selectedItem = null;
+    draw();
+    // store for menu on mouseup
+    state.dragging = null;
+    state._strokeClicked = strokeHit;
+    return;
+  }
+  // Drag material regardless of active tool
+  const itHit = findItemAt(cx,cy);
+  if (itHit){
+    state.selectedItem = itHit;
+    state.dragging = {item:itHit};
+    state.dragMoved = false;
+    state.dragStart = {x:cx, y:cy};
+    isDown=true;
+    const mcb = document.getElementById('matColorBtn');
+    if (mcb) mcb.style.background = itHit.color || '#ffffff';
+    const mr = document.getElementById('matRot');
+    if (mr) mr.value = Math.round(((itHit.rotation||0)*180/Math.PI+360)%360);
+    draw();
+    return;
+  }
+  if (!strokeHit && !findItemAt(cx,cy)) state.selectedDrawing = null;
   if (state.tool==='select'){
     const it = findItemAt(cx,cy);
     if (it){
       state.selectedItem = it;
       state.dragging = {item:it};
+      state.dragMoved = false;
+      state.dragStart = {x:cx, y:cy};
       isDown=true;
       const mcb = document.getElementById('matColorBtn');
       if (mcb) mcb.style.background = it.color || '#ffffff';
@@ -542,6 +755,7 @@ canvas.addEventListener('mousedown', (e)=>{
       return;
     }
     state.selectedItem = null;
+    state.selectedDrawing = null;
     draw();
     return;
   }
@@ -600,8 +814,18 @@ canvas.addEventListener('mousemove', (e)=>{
   const f = currentFrameObj();
   if (!f) return;
   if (state.dragging){
+    if (state.dragStart){
+      const dx = cx - state.dragStart.x;
+      const dy = cy - state.dragStart.y;
+      if (Math.hypot(dx,dy) > 3) state.dragMoved = true;
+    } else {
+      state.dragMoved = true;
+    }
     const norm = canvasToNorm(cx,cy);
-    if (state.dragging.player){
+    if (state.dragging.control){
+      state.dragging.control.cx = norm.x;
+      state.dragging.control.cy = norm.y;
+    } else if (state.dragging.player){
       state.dragging.player.x = norm.x;
       state.dragging.player.y = norm.y;
     } else if (state.dragging.item){
@@ -629,6 +853,9 @@ canvas.addEventListener('mouseup', (e)=>{
   const f = currentFrameObj();
   if (!f) return;
   if (state.dragging){
+    const wasItem = !!state.dragging.item;
+    const wasMoved = state.dragMoved;
+    const draggedItem = state.dragging.item;
     if (state.dragging.player){
       const p = state.dragging.player;
       if (p.x<0 || p.x>1 || p.y<0 || p.y>1){
@@ -649,16 +876,32 @@ canvas.addEventListener('mouseup', (e)=>{
       }
     }
     state.dragging=null;
+    if (wasItem && !wasMoved && draggedItem){
+      showCtxMenu(e.clientX, e.clientY, draggedItem, f);
+    }
+    draw();
+    return;
+  }
+  if (state._strokeClicked){
+    const sc = state._strokeClicked;
+    state._strokeClicked = null;
+    showDrawingCtxMenu(e.clientX, e.clientY, sc, f);
     draw();
     return;
   }
   if (state.drawing){
     if (state.drawing.type==='stroke'){
-      f.strokes.push(state.drawing.points);
+      if (state.drawing.points && state.drawing.points.length >= 2) f.strokes.push({ points: state.drawing.points, color: state.penColor, size: state.penSize });
     } else if (state.drawing.type==='line'){
-      f.lines.push({x1:state.drawing.x1,y1:state.drawing.y1,x2:state.drawing.x2,y2:state.drawing.y2,color:state.arrowColor,size:state.penSize,dashed:false});
+      const a = normToCanvas(state.drawing.x1,state.drawing.y1);
+      const b = normToCanvas(state.drawing.x2,state.drawing.y2);
+      const d = Math.hypot(b.x-a.x, b.y-a.y);
+      if (d > 5) f.lines.push({x1:state.drawing.x1,y1:state.drawing.y1,x2:state.drawing.x2,y2:state.drawing.y2,color:state.arrowColor,size:state.penSize,dashed:false});
     } else if (state.drawing.type==='arrow'){
-      f.arrows.push({x1:state.drawing.x1,y1:state.drawing.y1,x2:state.drawing.x2,y2:state.drawing.y2,color:state.arrowColor,size:state.penSize,dashed:false});
+      const a = normToCanvas(state.drawing.x1,state.drawing.y1);
+      const b = normToCanvas(state.drawing.x2,state.drawing.y2);
+      const d = Math.hypot(b.x-a.x, b.y-a.y);
+      if (d > 5) f.arrows.push({x1:state.drawing.x1,y1:state.drawing.y1,x2:state.drawing.x2,y2:state.drawing.y2,color:state.arrowColor,size:state.penSize,dashed:false});
     }
     state.drawing=null;
     draw();
@@ -785,21 +1028,53 @@ function showCanvasCtxMenu(x, y, cx, cy){
   menu.style.left = x + 'px';
   menu.style.top = y + 'px';
 
-  const btnPaste = document.createElement('button');
-  btnPaste.textContent = 'Pegar';
-  btnPaste.addEventListener('click', (ev)=>{
-    ev.stopPropagation();
-    const f = currentFrameObj();
-    if (f && state.copiedItem){
-      const norm = canvasToNorm(cx, cy);
-      if (norm.x>=0 && norm.x<=1 && norm.y>=0 && norm.y<=1){
-        f.items.push({ type: state.copiedItem.type, x: norm.x, y: norm.y, scale: state.copiedItem.scale||1, rotation: state.copiedItem.rotation||0, color: state.copiedItem.color });
+  if (state.copiedItem){
+    const btnPaste = document.createElement('button');
+    btnPaste.textContent = 'Pegar material';
+    btnPaste.addEventListener('click', (ev)=>{
+      ev.stopPropagation();
+      const f = currentFrameObj();
+      if (f && state.copiedItem){
+        const norm = canvasToNorm(cx, cy);
+        if (norm.x>=0 && norm.x<=1 && norm.y>=0 && norm.y<=1){
+          f.items.push({ type: state.copiedItem.type, x: norm.x, y: norm.y, scale: state.copiedItem.scale||1, rotation: state.copiedItem.rotation||0, color: state.copiedItem.color });
+          draw();
+        }
+      }
+      menu.remove();
+    });
+    menu.appendChild(btnPaste);
+  }
+
+  if (state.copiedDrawing){
+    const btnPasteD = document.createElement('button');
+    btnPasteD.textContent = 'Pegar dibujo';
+    btnPasteD.addEventListener('click', (ev)=>{
+      ev.stopPropagation();
+      const f = currentFrameObj();
+      if (f && state.copiedDrawing){
+        const d = state.copiedDrawing;
+        const norm = canvasToNorm(cx, cy);
+        // offset from original first point to click
+        if (d.type === 'stroke'){
+          const pts = d.points || [];
+          let ox = 0, oy = 0;
+          if (pts.length){ ox = norm.x - pts[0].x; oy = norm.y - pts[0].y; }
+          const newPts = pts.map(p=>({x: p.x + ox, y: p.y + oy}));
+          f.strokes.push({ points: newPts, color: d.color, size: d.size });
+        } else if (d.type === 'line' || d.type === 'arrow'){
+          const arr = (d.type === 'line') ? f.lines : f.arrows;
+          // offset based on first endpoint
+          const ox = norm.x - d.x1;
+          const oy = norm.y - d.y1;
+          arr.push({ x1: d.x1 + ox, y1: d.y1 + oy, x2: d.x2 + ox, y2: d.y2 + oy, color: d.color, size: d.size, dashed: d.dashed });
+        }
         draw();
       }
-    }
-    menu.remove();
-  });
-  menu.appendChild(btnPaste);
+      menu.remove();
+    });
+    menu.appendChild(btnPasteD);
+  }
 
   document.body.appendChild(menu);
 
@@ -811,6 +1086,147 @@ function showCanvasCtxMenu(x, y, cx, cy){
   };
   setTimeout(()=>document.addEventListener('click', closeHandler), 0);
 }
+function showDrawingCtxMenu(x, y, hit, f){
+  const old = document.getElementById('ctxMenu');
+  if (old) old.remove();
+  const menu = document.createElement('div');
+  menu.id = 'ctxMenu';
+  menu.className = 'ctxmenu';
+  menu.style.left = x + 'px';
+  menu.style.top = y + 'px';
+
+  const btnColor = document.createElement('button');
+  btnColor.textContent = 'Cambiar color';
+  btnColor.addEventListener('click', (ev)=>{
+    ev.stopPropagation();
+    menu.remove();
+    state.selectedDrawing = hit;
+    const palette = document.getElementById('matColorPalette');
+    if (palette) palette.classList.remove('hidden');
+  });
+  menu.appendChild(btnColor);
+
+  const btnCopy = document.createElement('button');
+  btnCopy.textContent = 'Copiar';
+  btnCopy.addEventListener('click', (ev)=>{
+    ev.stopPropagation();
+    menu.remove();
+    if (hit.type === 'stroke'){
+      const pts = Array.isArray(hit.obj) ? hit.obj : (hit.obj && hit.obj.points);
+      state.copiedDrawing = { type: 'stroke', points: (pts||[]).map(p=>({...p})), color: (hit.obj && hit.obj.color) || state.penColor, size: (hit.obj && hit.obj.size) || state.penSize };
+    } else if (hit.type === 'line'){
+      state.copiedDrawing = { type: 'line', x1: hit.obj.x1, y1: hit.obj.y1, x2: hit.obj.x2, y2: hit.obj.y2, color: hit.obj.color || state.arrowColor, size: hit.obj.size || 2, dashed: hit.obj.dashed };
+    } else if (hit.type === 'arrow'){
+      state.copiedDrawing = { type: 'arrow', x1: hit.obj.x1, y1: hit.obj.y1, x2: hit.obj.x2, y2: hit.obj.y2, color: hit.obj.color || state.arrowColor, size: hit.obj.size || 2, dashed: hit.obj.dashed };
+    }
+  });
+  menu.appendChild(btnCopy);
+
+  const btnThicker = document.createElement('button');
+  btnThicker.textContent = 'Aumentar grosor';
+  btnThicker.addEventListener('click', (ev)=>{
+    ev.stopPropagation();
+    menu.remove();
+    if (hit.obj){ hit.obj.size = (hit.obj.size || (hit.type==='stroke'?state.penSize:2)) + 1; }
+    state.selectedDrawing = hit;
+    draw();
+  });
+  menu.appendChild(btnThicker);
+
+  const btnThinner = document.createElement('button');
+  btnThinner.textContent = 'Disminuir grosor';
+  btnThinner.addEventListener('click', (ev)=>{
+    ev.stopPropagation();
+    menu.remove();
+    if (hit.obj){ hit.obj.size = Math.max(1, (hit.obj.size || (hit.type==='stroke'?state.penSize:2)) - 1); }
+    state.selectedDrawing = hit;
+    draw();
+  });
+  menu.appendChild(btnThinner);
+
+  if (hit.type === 'line' || hit.type === 'arrow'){
+    const btnArrowStart = document.createElement('button');
+    btnArrowStart.textContent = 'Flecha en origen';
+    btnArrowStart.addEventListener('click', (ev)=>{
+      ev.stopPropagation();
+      menu.remove();
+      if (hit.obj) hit.obj.arrowStart = !hit.obj.arrowStart;
+      state.selectedDrawing = hit;
+      draw();
+    });
+    menu.appendChild(btnArrowStart);
+
+    const btnArrowEnd = document.createElement('button');
+    btnArrowEnd.textContent = 'Flecha en final';
+    btnArrowEnd.addEventListener('click', (ev)=>{
+      ev.stopPropagation();
+      menu.remove();
+      if (hit.obj) hit.obj.arrowEnd = !hit.obj.arrowEnd;
+      state.selectedDrawing = hit;
+      draw();
+    });
+    menu.appendChild(btnArrowEnd);
+
+    const btnDashed = document.createElement('button');
+    btnDashed.textContent = 'Discontinua';
+    btnDashed.addEventListener('click', (ev)=>{
+      ev.stopPropagation();
+      menu.remove();
+      if (hit.obj) hit.obj.dashed = !hit.obj.dashed;
+      state.selectedDrawing = hit;
+      draw();
+    });
+    menu.appendChild(btnDashed);
+
+    const btnDeform = document.createElement('button');
+    btnDeform.textContent = 'Deformar';
+    btnDeform.addEventListener('click', (ev)=>{
+      ev.stopPropagation();
+      menu.remove();
+      if (hit.obj){
+        if (hit.obj.deformed){
+          hit.obj.deformed = false;
+        } else {
+          hit.obj.deformed = true;
+          hit.obj.cx = (hit.obj.x1 + hit.obj.x2)/2;
+          hit.obj.cy = (hit.obj.y1 + hit.obj.y2)/2 - 0.1;
+        }
+      }
+      state.selectedDrawing = hit;
+      draw();
+    });
+    menu.appendChild(btnDeform);
+  }
+
+  const btnDelete = document.createElement('button');
+  btnDelete.textContent = 'Borrar';
+  btnDelete.addEventListener('click', (ev)=>{
+    ev.stopPropagation();
+    if (hit.type === 'stroke'){
+      if (Array.isArray(f.strokes)) f.strokes.splice(hit.index,1);
+    } else if (hit.type === 'line'){
+      f.lines.splice(hit.index,1);
+    } else if (hit.type === 'arrow'){
+      f.arrows.splice(hit.index,1);
+    }
+    state.selectedDrawing = null;
+    menu.remove();
+    draw();
+  });
+  menu.appendChild(btnDelete);
+
+  document.body.appendChild(menu);
+
+  const closeHandler = (ev)=>{
+    if (!menu.contains(ev.target)){
+      menu.remove();
+      document.removeEventListener('click', closeHandler);
+    }
+  };
+  setTimeout(()=>document.addEventListener('click', closeHandler), 0);
+}
+
+state.sport = 'soccer';
 function populateSports(){ /* solo fútbol */ }
 populateSports();
 
@@ -824,9 +1240,9 @@ document.querySelectorAll('.tool').forEach(btn=>{
   });
 });
 
-document.getElementById('penColor').addEventListener('input', e=>state.penColor=e.target.value);
-document.getElementById('penSize').addEventListener('input', e=>state.penSize=+e.target.value);
-document.getElementById('arrowColor').addEventListener('input', e=>state.arrowColor=e.target.value);
+const penColorEl = document.getElementById('penColor'); if (penColorEl) penColorEl.addEventListener('input', e=>state.penColor=e.target.value);
+const penSizeEl = document.getElementById('penSize'); if (penSizeEl) penSizeEl.addEventListener('input', e=>state.penSize=+e.target.value);
+const arrowColorEl = document.getElementById('arrowColor'); if (arrowColorEl) arrowColorEl.addEventListener('input', e=>state.arrowColor=e.target.value);
 
 document.querySelectorAll('.mat').forEach(btn=>{
   btn.addEventListener('click', ()=>{
@@ -843,8 +1259,84 @@ const optNamesEl = document.getElementById('optNames');
 if (optNamesEl) optNamesEl.addEventListener('change', e=>{state.showNames=e.target.checked; draw();});
 const optBallPathEl = document.getElementById('optBallPath');
 if (optBallPathEl) optBallPathEl.addEventListener('change', e=>{state.showBallPath=e.target.checked; draw();});
-const optNumbersEl = document.getElementById('optNumbers');
-if (optNumbersEl) optNumbersEl.addEventListener('change', e=>{state.showNumbers=e.target.checked; draw();});
+function loadPitchImage(type){
+  const src = PITCH_IMAGES[type || state.pitchType];
+  if (!src) { state.pitchImg=null; state.pitchImage=null; state.backgroundImage=null; state.bgImage=null; state.boardImage=null; state.image=null; state.pitchImgRotate=false; state.pitchImgLoaded=false; state.pitchImgAspect=null; draw(); return; }
+  const img = new Image();
+  img.onload = ()=>{
+    state.pitchImg = img;
+    state.pitchImage = img;
+    state.backgroundImage = img;
+    state.bgImage = img;
+    state.boardImage = img;
+    state.image = img;
+    state.pitchImgRotate = (type === 'campo');
+    state.pitchImgLoaded = true;
+    state.pitchImgAspect = state.pitchImgRotate ? (img.naturalHeight / img.naturalWidth) : (img.naturalWidth / img.naturalHeight);
+    draw();
+  };
+  img.onerror = ()=>{ state.pitchImg=null; state.pitchImage=null; state.backgroundImage=null; state.bgImage=null; state.boardImage=null; state.image=null; state.pitchImgRotate=false; state.pitchImgLoaded=false; state.pitchImgAspect=null; draw(); };
+  state.pitchImgLoaded = false;
+  img.src = src;
+  state.pitchImg = img;
+  state.pitchImage = img;
+  state.backgroundImage = img;
+  state.bgImage = img;
+  state.boardImage = img;
+  state.image = img;
+}
+const pitchSelectEl = document.getElementById('pitchSelect');
+if (pitchSelectEl){
+  pitchSelectEl.value = state.pitchType;
+  pitchSelectEl.addEventListener('change', e=>{
+    state.pitchType = e.target.value;
+    const b = getBoard();
+    if (b && Array.isArray(b.frames)){
+      b.frames.forEach(fr=>{
+        if (Array.isArray(fr.balls)){
+          fr.balls = fr.balls.filter(ba => !(Math.abs((ba.x||0)-0.5) < 0.02 && Math.abs((ba.y||0)-0.5) < 0.02));
+        }
+      });
+    }
+    loadPitchImage(state.pitchType);
+  });
+}
+loadPitchImage(state.pitchType);
+
+const btnClearAll = document.getElementById('btnClearAll');
+if (btnClearAll) btnClearAll.addEventListener('click', ()=>{
+  const b = getBoard();
+  if (b && Array.isArray(b.frames)){
+    b.frames.forEach(fr=>{
+      fr.players = [];
+      fr.balls = [];
+      fr.items = [];
+      fr.strokes = [];
+      fr.lines = [];
+      fr.arrows = [];
+    });
+    state.currentFrame = 0;
+    renderFrames();
+    draw();
+  }
+});
+
+// ---------- Task counter / name ----------
+function renderTaskUI(){
+  const c = document.getElementById('taskCounter');
+  if (c && document.activeElement !== c) c.value = state.taskCounter;
+  const inp = document.getElementById('taskName');
+  if (inp && document.activeElement !== inp) inp.value = state.taskName || '';
+}
+const btnTaskPrev = document.getElementById('btnTaskPrev');
+const btnTaskNext = document.getElementById('btnTaskNext');
+if (btnTaskPrev) btnTaskPrev.addEventListener('click', ()=>{ if (state.taskCounter>1) state.taskCounter--; renderTaskUI(); });
+if (btnTaskNext) btnTaskNext.addEventListener('click', ()=>{ state.taskCounter++; renderTaskUI(); });
+const taskCounterInput = document.getElementById('taskCounter');
+if (taskCounterInput) taskCounterInput.addEventListener('input', e=>{ const v = parseInt(e.target.value,10); if (!isNaN(v) && v>=1) state.taskCounter = v; });
+const taskNameInput = document.getElementById('taskName');
+if (taskNameInput) taskNameInput.addEventListener('input', e=>{ state.taskName = e.target.value; });
+renderTaskUI();
 
 const COLORS10 = ['#e63946','#ff8c00','#ffff00','#00b4d8','#1d3557','#ffffff','#000000','#2d6a4f','#9d4edd','#ff69b4'];
 const matColorBtn = document.getElementById('matColorBtn');
@@ -859,6 +1351,14 @@ if (matColorPalette){
       if (state.selectedItem){
         state.selectedItem.color = col;
         if (matColorBtn) matColorBtn.style.background = col;
+        draw();
+      } else if (state.selectedDrawing){
+        const sd = state.selectedDrawing;
+        if (sd.obj && !Array.isArray(sd.obj)){
+          sd.obj.color = col;
+        } else if (sd.type === 'stroke' && Array.isArray(sd.obj)){
+          // convert legacy stroke array to object? leave as is
+        }
         draw();
       }
       matColorPalette.classList.add('hidden');
@@ -927,7 +1427,7 @@ if (document.getElementById('awayRoster')) renderRoster('away');
 
 // ---------- Boards ----------
 function newBoard(type){
-  const b = { id:uid(), name: type==='formation'?'Formación':'Animación', type, frames:[{players:[],balls:[{x:0.5,y:0.5}],items:[],strokes:[],lines:[],arrows:[]}] };
+  const b = { id:uid(), name: type==='formation'?'Formación':'Animación', type, frames:[{players:[],balls:[],items:[],strokes:[],lines:[],arrows:[]}] };
   state.boards.push(b);
   state.activeBoardId=b.id;
   state.currentFrame=0;
@@ -1009,6 +1509,7 @@ document.getElementById('btnNewProject').addEventListener('click', ()=>{
   if (confirm('¿Nuevo proyecto? Se perderán cambios no guardados.')){
     state.boards=[]; state.activeBoardId=null; state.currentFrame=0;
     state.fastCounter={home:0,away:0};
+    newBoard('formation');
     initRosters();
     const hn=document.getElementById('homeName'); if (hn) hn.value=state.home.name;
     const an=document.getElementById('awayName'); if (an) an.value=state.away.name;
@@ -1027,6 +1528,11 @@ document.getElementById('fileOpen').addEventListener('change', (e)=>{
       state.sport='soccer';
       state.home=data.home; state.away=data.away;
       state.boards=data.boards||[];
+      state.boards.forEach(b=>{ if (b && Array.isArray(b.frames)) b.frames.forEach(fr=>{ if (Array.isArray(fr.balls)) fr.balls = fr.balls.filter(ba=>!(Math.abs((ba.x||0)-0.5)<0.02 && Math.abs((ba.y||0)-0.5)<0.02)); }); });
+      if (data.pitchType){ state.pitchType=data.pitchType; if (pitchSelectEl) pitchSelectEl.value=state.pitchType; loadPitchImage(state.pitchType); }
+      if (typeof data.taskCounter === 'number') state.taskCounter = data.taskCounter;
+      if (typeof data.taskName === 'string') state.taskName = data.taskName;
+      renderTaskUI();
       state.activeBoardId=state.boards.length?state.boards[0].id:null;
       state.currentFrame=0;
       const hn2=document.getElementById('homeName'); if (hn2) hn2.value=state.home.name;
@@ -1042,10 +1548,13 @@ document.getElementById('fileOpen').addEventListener('change', (e)=>{
   e.target.value='';
 });
 document.getElementById('btnSaveProject').addEventListener('click', ()=>{
-  const data={ sport:state.sport, home:state.home, away:state.away, boards:state.boards };
+  const name = (state.taskName || '').trim();
+  if (!name){ alert('No se puede guardar sin nombre de tarea.'); return; }
+  const safe = name.replace(/[<>:"/\\|?*]/g,'_');
+  const data={ sport:state.sport, pitchType:state.pitchType, taskCounter:state.taskCounter, taskName:state.taskName, home:state.home, away:state.away, boards:state.boards };
   const blob=new Blob([JSON.stringify(data,null,2)],{type:'application/json'});
   const url=URL.createObjectURL(blob);
-  const a=document.createElement('a'); a.href=url; a.download='proyecto.json'; a.click();
+  const a=document.createElement('a'); a.href=url; a.download=safe+'.json'; a.click();
   URL.revokeObjectURL(url);
 });
 
@@ -1113,7 +1622,7 @@ function open3D(){
 
   // pitch plane
   const pr = pitchRect();
-  const aspect = SPORTS[state.sport].aspect;
+  const aspect = (state.pitchImgLoaded && state.pitchImgAspect) ? state.pitchImgAspect : SPORTS[state.sport].aspect;
   const pw = 60, ph = pw/aspect;
   const planeGeo = new THREE.PlaneGeometry(pw, ph);
   const planeMat = new THREE.MeshLambertMaterial({color:0x2d6a4f});

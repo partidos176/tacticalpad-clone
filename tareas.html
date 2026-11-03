@@ -12,6 +12,12 @@
     <div class="brand">TacticalPad Clone</div>
     <div class="top-actions">
       <button onclick="location.href='index.html'" style="background:#e63946;color:#fff;font-weight:bold;">Regresar</button>
+      <button id="btnClearAll" style="margin-left:8px;">Limpiar</button>
+      <select id="pitchSelect" style="margin-left:8px;">
+        <option value="campo">Campo</option>
+        <option value="medio">Medio</option>
+        <option value="nada">Nada</option>
+      </select>
       <button id="btnNewProject">Nuevo</button>
       <button id="btnOpenProject">Abrir</button>
       <input type="file" id="fileOpen" accept="application/json" hidden />
@@ -27,30 +33,16 @@
   <div class="layout">
     <aside class="sidebar left">
       <section>
-        <h3>Herramientas</h3>
+        <h3>HERRAMIENTAS</h3>
         <div class="toolgrid">
-          <button class="tool active" data-tool="select">Seleccionar</button>
           <button class="tool" data-tool="pen">Lápiz</button>
           <button class="tool" data-tool="line">Línea</button>
-          <button class="tool" data-tool="arrow">Flecha</button>
-          <button class="tool" data-tool="eraser">Borrador</button>
-          <button class="tool" data-tool="clearink">Borrar tinta</button>
         </div>
-        <div class="row">
-          <label>Color lápiz</label>
-          <input type="color" id="penColor" value="#ffffff" />
-        </div>
-        <div class="row">
-          <label>Grosor</label>
-          <input type="range" id="penSize" min="1" max="12" value="3" />
-        </div>
-        <div class="row">
-          <label>Color flecha</label>
-          <input type="color" id="arrowColor" value="#ffcc00" />
-        </div>
+
+
       </section>
       <section>
-        <h3>Materiales (tareas)</h3>
+        <h3>MATERIALES</h3>
         <div class="toolgrid">
           <button class="mat" data-mat="goal">Portería</button>
           <button class="mat" data-mat="cone">Cono</button>
@@ -59,6 +51,7 @@
           <button class="mat" data-mat="pole">Pica</button>
           <button class="mat" data-mat="hurdle">Valla</button>
           <button class="mat" data-mat="ball">Balón</button>
+          <button class="mat" data-mat="hoop">Aros</button>
         </div>
         <p class="hint">Selecciona un material y haz clic en el campo para colocarlo. Arrastra para mover. Clic derecho para eliminar. Rueda del ratón sobre un material para agrandarlo o reducirlo.</p>
       </section>
@@ -86,8 +79,14 @@
 
     <aside class="sidebar right">
       <section>
-        <h3>Notas</h3>
-        <textarea id="notes" placeholder="Notas tácticas..."></textarea>
+        <h3>TAREA: <button id="btnTaskPrev">-</button> <input id="taskCounter" type="number" min="1" value="1" style="width:60px;" /> <button id="btnTaskNext">+</button></h3>
+        <div class="row">
+          <input id="taskName" placeholder="Nombre de la tarea" style="width:100%;" />
+        </div>
+      </section>
+      <section>
+        <h3>NOTAS</h3>
+        <textarea id="notes" placeholder="Notas tácticas..." style="width:100%;"></textarea>
       </section>
     </aside>
   </div>
@@ -121,7 +120,7 @@
         <canvas id="videoOverlay"></canvas>
       </div>
       <div class="video-side">
-        <h4>Herramientas</h4>
+        <h4>HERRAMIENTAS</h4>
         <div class="toolgrid">
           <button class="vtool active" data-vtool="pen">Lápiz</button>
           <button class="vtool" data-vtool="eraser">Borrar todo</button>
