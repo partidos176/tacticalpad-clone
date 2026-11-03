@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>TacticalPad Clone - Tareas</title>
+  <script type="module" crossorigin src="./assets/app-Dsq19vhy.js"></script>
+  <link rel="stylesheet" crossorigin href="./assets/styles-D6Ctkpg1.css">
+</head>
+<body>
+<div id="app">
+  <header class="topbar">
+    <div class="brand">TacticalPad Clone</div>
+    <div class="top-actions">
+      <button onclick="location.href='index.html'" style="background:#e63946;color:#fff;font-weight:bold;">Regresar</button>
+      <button id="btnClearAll" style="margin-left:8px;">Limpiar</button>
+      <select id="pitchSelect" style="margin-left:8px;">
+        <option value="campo">Campo</option>
+        <option value="medio">Medio</option>
+        <option value="nada">Nada</option>
+      </select>
+      <button id="btnNewProject">Nuevo</button>
+      <button id="btnOpenProject">Abrir</button>
+      <input type="file" id="fileOpen" accept="application/json" hidden />
+      <button id="btnSaveProject">Guardar</button>
+      <button id="btnExportImage">Exportar Imagen</button>
+      <button id="btnPresentation">Presentación</button>
+    </div>
+  </header>
+
+  <div class="layout">
+    <aside class="sidebar left">
+      <section>
+        <h3>HERRAMIENTAS</h3>
+        <div class="toolgrid">
+          <button class="tool" data-tool="pen">Lápiz</button>
+          <button class="tool" data-tool="line">Línea</button>
+        </div>
+
+
+      </section>
+      <section>
+        <h3>MATERIALES</h3>
+        <div class="toolgrid">
+          <button class="mat" data-mat="goal">Portería</button>
+          <button class="mat" data-mat="cone">Cono</button>
+          <button class="mat" data-mat="marker">Chino</button>
+          <button class="mat" data-mat="ladder">Escalera</button>
+          <button class="mat" data-mat="pole">Pica</button>
+          <button class="mat" data-mat="hurdle">Valla</button>
+          <button class="mat" data-mat="ball">Balón</button>
+          <button class="mat" data-mat="hoop">Aros</button>
+        </div>
+
+      </section>
+
+    </aside>
+
+    <main class="center">
+      <div class="canvaswrap" id="canvasWrap">
+        <canvas id="board"></canvas>
+      </div>
+    </main>
+
+    <aside class="sidebar right">
+      <section>
+        <h3>TAREA: <button id="btnTaskPrev">-</button> <input id="taskCounter" type="number" min="1" value="1" style="width:60px;" /> <button id="btnTaskNext">+</button></h3>
+        <div class="row">
+          <input id="taskName" placeholder="Nombre de la tarea" style="width:100%;" />
+        </div>
+      </section>
+      <section>
+        <h3>NOTAS</h3>
+        <textarea id="notes" placeholder="Notas tácticas..." style="width:100%;"></textarea>
+      </section>
+    </aside>
+  </div>
+</div>
+
+<!-- 3D modal -->
+<div id="modal3d" class="modal hidden">
+  <div class="modal-content">
+    <div class="modal-header">
+      <span>Vista 3D</span>
+      <button id="close3d">Cerrar</button>
+    </div>
+    <div id="threeContainer"></div>
+  </div>
+</div>
+
+<!-- Video modal -->
+<div id="modalVideo" class="modal hidden">
+  <div class="modal-content">
+    <div class="modal-header">
+      <span>Análisis de Video</span>
+      <div>
+        <button id="loadVideo">Cargar video</button>
+        <input type="file" id="fileVideo" accept="video/*" hidden />
+        <button id="closeVideo">Cerrar</button>
+      </div>
+    </div>
+    <div class="video-body">
+      <div class="video-stage">
+        <video id="videoEl" controls></video>
+        <canvas id="videoOverlay"></canvas>
+      </div>
+      <div class="video-side">
+        <h4>HERRAMIENTAS</h4>
+        <div class="toolgrid">
+          <button class="vtool active" data-vtool="pen">Lápiz</button>
+          <button class="vtool" data-vtool="eraser">Borrar todo</button>
+        </div>
+        <div class="row">
+          <label>Color</label>
+          <input type="color" id="vColor" value="#ff0000" />
+        </div>
+        <div class="row">
+          <label>Grosor</label>
+          <input type="range" id="vSize" min="1" max="12" value="3" />
+        </div>
+        <h4>Marcadores</h4>
+        <button id="addBookmark">+ Marcador</button>
+        <div id="bookmarks" class="boardslist"></div>
+        <textarea id="bookmarkComment" placeholder="Comentario del marcador..."></textarea>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+<script>window.APP_MODE='tareas';</script>
+</body>
+</html>
