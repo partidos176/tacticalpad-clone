@@ -229,7 +229,8 @@
 
     const results = [];
     for (const r of taskRows) {
-      results.push(await renderTaskImage(r._task.data));
+      const img = await renderTaskImage(r._task.data);
+      results.push({ ...img, rowNumber: r._task.number });
     }
 
     const pad = 24;
@@ -279,7 +280,7 @@
       y += 26;
       ctx.font = 'bold 22px Arial';
       ctx.fillStyle = '#000000';
-      ctx.fillText(String(b.res.taskCounter || ''), pad, y + 22);
+      ctx.fillText(String(b.res.rowNumber || ''), pad, y + 22);
       y += 34;
       const imgH = b.imgH;
       ctx.drawImage(b.im, pad, y);
