@@ -245,7 +245,7 @@
 
     const blocks = results.map((res, i) => {
       const im = imgs[i];
-      const imgH = im.height - 90;
+      const imgH = im.height - 120;
       const tmpCanvas = document.createElement('canvas');
       const tctx = tmpCanvas.getContext('2d');
       tctx.font = '14px Arial';
@@ -284,7 +284,7 @@
       const numW = ctx.measureText(numStr).width;
       ctx.fillText(numStr, pad, y + 22);
       const imgX = pad + numW + 12;
-      const cropTop = 90;
+      const cropTop = 120;
       const imgH = b.im.height - cropTop;
       ctx.drawImage(b.im, 0, cropTop, b.im.width, imgH, imgX, y, b.im.width, imgH);
       ctx.font = '14px Arial';
