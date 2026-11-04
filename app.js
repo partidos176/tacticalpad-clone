@@ -1401,6 +1401,20 @@ if (btnClearAll) btnClearAll.addEventListener('click', ()=>{
   }
 });
 
+const btnUndo = document.getElementById('btnUndo');
+if (btnUndo) btnUndo.addEventListener('click', ()=>{
+  const b = getBoard();
+  if (!b) return;
+  const f = currentFrameObj();
+  if (!f) return;
+  let undone = false;
+  if (Array.isArray(f.strokes) && f.strokes.length > 0) { f.strokes.pop(); undone = true; }
+  else if (Array.isArray(f.lines) && f.lines.length > 0) { f.lines.pop(); undone = true; }
+  else if (Array.isArray(f.arrows) && f.arrows.length > 0) { f.arrows.pop(); undone = true; }
+  else if (Array.isArray(f.items) && f.items.length > 0) { f.items.pop(); undone = true; }
+  if (undone) draw();
+});
+
 // ---------- Task counter / name ----------
 function renderTaskUI(){
   const c = document.getElementById('taskCounter');
