@@ -43,6 +43,7 @@ const state = {
   image: null,
   pitchImgAspect: null,
   pitchImgLoaded: false,
+  transparentBg: false,
   placeItem: null,
   selectedItem: null,
   selectedDrawing: null,
@@ -526,8 +527,10 @@ function interpolateFrames(a,b,t){
 
 function draw(){
   ctx.clearRect(0,0,canvas.width,canvas.height);
-  ctx.fillStyle='#0d1b2a';
-  ctx.fillRect(0,0,canvas.width,canvas.height);
+  if (!state.transparentBg){
+    ctx.fillStyle='#0d1b2a';
+    ctx.fillRect(0,0,canvas.width,canvas.height);
+  }
   const pr = pitchRect();
   if (state.pitchImgLoaded && state.pitchImg){
     if (state.pitchImgRotate){
@@ -1023,6 +1026,32 @@ function showCtxMenu(x, y, it, f){
     setTimeout(()=>document.addEventListener('click', closePal),0);
   });
   menu.appendChild(btnColor);
+
+  const btnPlus = document.createElement('button');
+  btnPlus.textContent = '+ Agrandar';
+  btnPlus.addEventListener('click', (ev)=>{
+    ev.stopPropagation();
+    it.scale = Math.min(4, (it.scale||1) + 0.1);
+    if (state.selectedItem === it) {
+      const mr = document.getElementById('matRot');
+      if (mr) mr.value = Math.round(((it.rotation||0)*180/Math.PI+360)%360);
+    }
+    draw();
+  });
+  menu.appendChild(btnPlus);
+
+  const btnMinus = document.createElement('button');
+  btnMinus.textContent = '- Reducir';
+  btnMinus.addEventListener('click', (ev)=>{
+    ev.stopPropagation();
+    it.scale = Math.max(0.3, (it.scale||1) - 0.1);
+    if (state.selectedItem === it) {
+      const mr = document.getElementById('matRot');
+      if (mr) mr.value = Math.round(((it.rotation||0)*180/Math.PI+360)%360);
+    }
+    draw();
+  });
+  menu.appendChild(btnMinus);
 
   const btnDelete = document.createElement('button');
   btnDelete.textContent = 'Borrar';
@@ -1630,7 +1659,7 @@ document.getElementById('fileOpen').addEventListener('change', (e)=>{
 window.addEventListener('message', (e)=>{
   const d = e.data || {};
   if (d.type === 'loadTask'){
-    try { openProjectData(d.data); } catch(err){}
+    try { state.transparentBg = true; openProjectData(d.data); } catch(err){}
     const delay = 1500;
     setTimeout(()=>{
       try { draw(); } catch(err){}
