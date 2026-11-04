@@ -1608,7 +1608,9 @@ document.getElementById('btnOpenProject').addEventListener('click', async ()=>{
       currentFileHandle = handle;
       const file = await handle.getFile();
       const text = await file.text();
-      openProjectData(JSON.parse(text));
+      const data = JSON.parse(text);
+      currentFileHandle._origNum = data.taskCounter;
+      openProjectData(data);
       return;
     } catch(e){
       if (e && e.name === 'AbortError') return;
@@ -1677,12 +1679,27 @@ document.getElementById('btnSaveProject').addEventListener('click', async ()=>{
   const notesVal = (document.getElementById('notes')?.value || '');
   const data={ sport:state.sport, pitchType:state.pitchType, taskCounter:state.taskCounter, taskName:state.taskName, notes: notesVal, home:state.home, away:state.away, boards:state.boards };
 
+  // Check for duplicate task number among saved tasks
+  const registry = JSON.parse(localStorage.getItem('savedTaskNumbers') || '[]');
+  const originalNum = currentFileHandle ? currentFileHandle._origNum : null;
+  const others = registry.filter(n => n !== originalNum);
+  if (others.includes(state.taskCounter)){
+    alert('NUMERO DE TAREA REPETIDO');
+    return;
+  }
+
   // If we have a handle from a previous open/save, overwrite it
   if (currentFileHandle){
     try {
       const writable = await currentFileHandle.createWritable();
       await writable.write(JSON.stringify(data,null,2));
       await writable.close();
+      // update registry
+      const idx = registry.indexOf(originalNum);
+      if (idx >= 0) registry.splice(idx, 1);
+      if (!registry.includes(state.taskCounter)) registry.push(state.taskCounter);
+      localStorage.setItem('savedTaskNumbers', JSON.stringify(registry));
+      currentFileHandle._origNum = state.taskCounter;
       alert('Guardado (sobrescrito).');
       return;
     } catch(e){ /* fall through */ }
@@ -1693,9 +1710,13 @@ document.getElementById('btnSaveProject').addEventListener('click', async ()=>{
     try {
       const handle = await window.showSaveFilePicker({ suggestedName: safe + '.json', types: [{ description: 'JSON', accept: { 'application/json': ['.json'] } }] });
       currentFileHandle = handle;
+      currentFileHandle._origNum = state.taskCounter;
       const writable = await handle.createWritable();
       await writable.write(JSON.stringify(data,null,2));
       await writable.close();
+      const reg = JSON.parse(localStorage.getItem('savedTaskNumbers') || '[]');
+      if (!reg.includes(state.taskCounter)) reg.push(state.taskCounter);
+      localStorage.setItem('savedTaskNumbers', JSON.stringify(reg));
       alert('Guardado.');
       return;
     } catch(e){
@@ -1709,6 +1730,9 @@ document.getElementById('btnSaveProject').addEventListener('click', async ()=>{
   const url=URL.createObjectURL(blob);
   const a=document.createElement('a'); a.href=url; a.download=safe+'.json'; a.click();
   URL.revokeObjectURL(url);
+  const reg = JSON.parse(localStorage.getItem('savedTaskNumbers') || '[]');
+  if (!reg.includes(state.taskCounter)) reg.push(state.taskCounter);
+  localStorage.setItem('savedTaskNumbers', JSON.stringify(reg));
 });
 
 document.getElementById('btnExportImage').addEventListener('click', ()=>{
