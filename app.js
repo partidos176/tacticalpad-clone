@@ -58,6 +58,7 @@ const state = {
 };
 
 let playI = 0, playT = 0, playStart = null, playRaf = null;
+let currentFileHandle = null;
 
 function initRosters(){
   state.home.players = [];
@@ -1556,7 +1557,7 @@ if (speedEl) speedEl.addEventListener('input', (e)=>{ state.speed=+e.target.valu
 
 // ---------- New/Open/Save ----------
 document.getElementById('btnNewProject').addEventListener('click', ()=>{
-  if (confirm('¿Nuevo proyecto? Se perderán cambios no guardados.')){
+  if (confirm('¿Nuevo proyecto? Se perderán cambios no guardados.')){ currentFileHandle = null;
     state.boards=[]; state.activeBoardId=null; state.currentFrame=0;
     state.fastCounter={home:0,away:0};
     state.taskName=''; state.taskCounter=1;
@@ -1571,42 +1572,110 @@ document.getElementById('btnNewProject').addEventListener('click', ()=>{
     renderBoards(); renderFrames(); draw();
   }
 });
-document.getElementById('btnOpenProject').addEventListener('click', ()=>document.getElementById('fileOpen').click());
+document.getElementById('btnOpenProject').addEventListener('click', async ()=>{
+  if (window.showOpenFilePicker){
+    try {
+      const [handle] = await window.showOpenFilePicker({ types: [{ description: 'JSON', accept: { 'application/json': ['.json'] } }] });
+      currentFileHandle = handle;
+      const file = await handle.getFile();
+      const text = await file.text();
+      openProjectData(JSON.parse(text));
+      return;
+    } catch(e){
+      if (e && e.name === 'AbortError') return;
+      // fallback to input
+    }
+  }
+  document.getElementById('fileOpen').click();
+});
+function openProjectData(data){
+  try {
+    state.sport='soccer';
+    state.home=data.home; state.away=data.away;
+    state.boards=data.boards||[];
+    state.boards.forEach(b=>{ if (b && Array.isArray(b.frames)) b.frames.forEach(fr=>{ if (Array.isArray(fr.balls)) fr.balls = fr.balls.filter(ba=>!(Math.abs((ba.x||0)-0.5)<0.02 && Math.abs((ba.y||0)-0.5)<0.02)); }); });
+    if (data.pitchType){ state.pitchType=data.pitchType; if (pitchSelectEl) pitchSelectEl.value=state.pitchType; loadPitchImage(state.pitchType); }
+    if (typeof data.taskCounter === 'number') state.taskCounter = data.taskCounter;
+    if (typeof data.taskName === 'string') state.taskName = data.taskName;
+    if (typeof data.notes === 'string'){ const n=document.getElementById('notes'); if (n) n.value = data.notes; }
+    renderTaskUI();
+    state.activeBoardId=state.boards.length?state.boards[0].id:null;
+    state.currentFrame=0;
+    const hn2=document.getElementById('homeName'); if (hn2) hn2.value=state.home.name;
+    const hc2=document.getElementById('homeColor'); if (hc2) hc2.value=state.home.color;
+    const an2=document.getElementById('awayName'); if (an2) an2.value=state.away.name;
+    const ac2=document.getElementById('awayColor'); if (ac2) ac2.value=state.away.color;
+    if (document.getElementById('homeRoster')) renderRoster('home');
+    if (document.getElementById('awayRoster')) renderRoster('away');
+    renderBoards(); renderFrames(); draw();
+  } catch(err){ console.error(err); }
+}
+window.openProjectData = openProjectData;
+
 document.getElementById('fileOpen').addEventListener('change', (e)=>{
+  currentFileHandle = null;
   const file=e.target.files[0]; if(!file) return;
   const reader=new FileReader();
   reader.onload=()=>{
     try {
       const data=JSON.parse(reader.result);
-      state.sport='soccer';
-      state.home=data.home; state.away=data.away;
-      state.boards=data.boards||[];
-      state.boards.forEach(b=>{ if (b && Array.isArray(b.frames)) b.frames.forEach(fr=>{ if (Array.isArray(fr.balls)) fr.balls = fr.balls.filter(ba=>!(Math.abs((ba.x||0)-0.5)<0.02 && Math.abs((ba.y||0)-0.5)<0.02)); }); });
-      if (data.pitchType){ state.pitchType=data.pitchType; if (pitchSelectEl) pitchSelectEl.value=state.pitchType; loadPitchImage(state.pitchType); }
-      if (typeof data.taskCounter === 'number') state.taskCounter = data.taskCounter;
-      if (typeof data.taskName === 'string') state.taskName = data.taskName;
-      if (typeof data.notes === 'string'){ const n=document.getElementById('notes'); if (n) n.value = data.notes; }
-      renderTaskUI();
-      state.activeBoardId=state.boards.length?state.boards[0].id:null;
-      state.currentFrame=0;
-      const hn2=document.getElementById('homeName'); if (hn2) hn2.value=state.home.name;
-      const hc2=document.getElementById('homeColor'); if (hc2) hc2.value=state.home.color;
-      const an2=document.getElementById('awayName'); if (an2) an2.value=state.away.name;
-      const ac2=document.getElementById('awayColor'); if (ac2) ac2.value=state.away.color;
-      if (document.getElementById('homeRoster')) renderRoster('home');
-      if (document.getElementById('awayRoster')) renderRoster('away');
-      renderBoards(); renderFrames(); draw();
+      openProjectData(data);
     } catch(err){ alert('Error al abrir: '+err.message); }
   };
   reader.readAsText(file);
   e.target.value='';
 });
-document.getElementById('btnSaveProject').addEventListener('click', ()=>{
+
+// Support rendering task images from other pages (e.g. sesion presentation)
+window.addEventListener('message', (e)=>{
+  const d = e.data || {};
+  if (d.type === 'loadTask'){
+    try { openProjectData(d.data); } catch(err){}
+    const delay = 1500;
+    setTimeout(()=>{
+      try { draw(); } catch(err){}
+      try {
+        const url = canvas.toDataURL('image/png');
+        e.source.postMessage({ type:'taskImage', id:d.id, url, notes: (document.getElementById('notes')?.value || ''), taskCounter: state.taskCounter, taskName: state.taskName }, '*');
+      } catch(err){}
+    }, delay);
+  }
+});
+document.getElementById('btnSaveProject').addEventListener('click', async ()=>{
   const name = (state.taskName || '').trim();
   if (!name){ alert('No se puede guardar sin nombre de tarea.'); return; }
   const safe = name.replace(/[<>:"/\\|?*]/g,'_');
   const notesVal = (document.getElementById('notes')?.value || '');
   const data={ sport:state.sport, pitchType:state.pitchType, taskCounter:state.taskCounter, taskName:state.taskName, notes: notesVal, home:state.home, away:state.away, boards:state.boards };
+
+  // If we have a handle from a previous open/save, overwrite it
+  if (currentFileHandle){
+    try {
+      const writable = await currentFileHandle.createWritable();
+      await writable.write(JSON.stringify(data,null,2));
+      await writable.close();
+      alert('Guardado (sobrescrito).');
+      return;
+    } catch(e){ /* fall through */ }
+  }
+
+  // Otherwise ask where to save and remember handle for future overwrites
+  if (window.showSaveFilePicker){
+    try {
+      const handle = await window.showSaveFilePicker({ suggestedName: safe + '.json', types: [{ description: 'JSON', accept: { 'application/json': ['.json'] } }] });
+      currentFileHandle = handle;
+      const writable = await handle.createWritable();
+      await writable.write(JSON.stringify(data,null,2));
+      await writable.close();
+      alert('Guardado.');
+      return;
+    } catch(e){
+      if (e && e.name === 'AbortError') return;
+      // fall through to download
+    }
+  }
+
+  // Fallback: download
   const blob=new Blob([JSON.stringify(data,null,2)],{type:'application/json'});
   const url=URL.createObjectURL(blob);
   const a=document.createElement('a'); a.href=url; a.download=safe+'.json'; a.click();

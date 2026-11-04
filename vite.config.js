@@ -13,6 +13,7 @@ export default defineConfig({
         main: 'index.html',
         partido: 'partido.html',
         tareas: 'tareas.html',
+        sesion: 'sesion.html',
       },
     },
   },

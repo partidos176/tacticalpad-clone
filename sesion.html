@@ -1,0 +1,298 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>TacticalPad Clone - Sesion</title>
+<link rel="stylesheet" href="styles.css" />
+<style>
+  .top-actions { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+  .sesion-wrap { padding: 1rem; }
+  table.task-table { width: 100%; border-collapse: collapse; margin-top: 1rem; }
+  table.task-table th, table.task-table td { border: 1px solid #457b9d; padding: 8px; color: #fff; vertical-align: middle; }
+  table.task-table th { background: #1d3557; }
+  .drop-cell { min-height: 60px; background: #0d1b2a; text-align: center; }
+  .insert-btn { padding: 6px 12px; cursor: pointer; }
+  .task-img { max-width: 140px; max-height: 105px; cursor: zoom-in; }
+</style>
+</head>
+<body>
+<div id="app">
+  <header class="topbar">
+    <div class="brand">TacticalPad Clone</div>
+    <div class="top-actions">
+      <button onclick="location.href='index.html'" style="background:#e63946;color:#fff;font-weight:bold;">Regresar</button>
+      <button id="btnAddRow">Añadir tarea</button>
+      <input type="file" id="fileOpen" accept="application/json" hidden />
+      <button id="btnSaveProject">Guardar</button>
+      <button id="btnExportImage">Exportar Imagen</button>
+      <button id="btnPresentation">Presentación</button>
+    </div>
+  </header>
+  <div class="sesion-wrap">
+    <h2 style="color:#fff;">Sesión de tareas</h2>
+    <p style="color:#aaa;">Columna 1: número de tarea. Columna 2: nombre. Columna 3: imagen de la tarea (pasa el ratón para ampliar).</p>
+    <table class="task-table" id="taskTable">
+      <thead>
+        <tr><th>Tarea</th><th>Nombre</th><th>Imagen</th></tr>
+      </thead>
+      <tbody id="taskTableBody"></tbody>
+    </table>
+  </div>
+</div>
+<script>
+  const fileInput = document.getElementById('fileOpen');
+  const tbody = document.getElementById('taskTableBody');
+  const btnAddRow = document.getElementById('btnAddRow');
+  const btnPres = document.getElementById('btnPresentation');
+
+  let pendingCell = null;
+  let renderFrame = null;
+
+  function attachImageHover(img) {
+    img.addEventListener('mouseenter', () => {
+      let preview = document.getElementById('imgPreviewFloat');
+      if (!preview) {
+        preview = document.createElement('div');
+        preview.id = 'imgPreviewFloat';
+        preview.style.cssText = 'position:fixed;z-index:9999;pointer-events:none;background:#fff;padding:4px;border-radius:6px;box-shadow:0 4px 12px rgba(0,0,0,.5);display:none;';
+        const pimg = document.createElement('img');
+        pimg.style.cssText = 'max-width:420px;max-height:320px;display:block;';
+        preview.appendChild(pimg);
+        document.body.appendChild(preview);
+      }
+      preview.querySelector('img').src = img.src;
+      preview.style.display = 'block';
+    });
+    img.addEventListener('mousemove', (e) => {
+      const preview = document.getElementById('imgPreviewFloat');
+      if (preview) {
+        preview.style.left = (e.clientX + 16) + 'px';
+        preview.style.top = (e.clientY + 16) + 'px';
+      }
+    });
+    img.addEventListener('mouseleave', () => {
+      const preview = document.getElementById('imgPreviewFloat');
+      if (preview) preview.style.display = 'none';
+    });
+  }
+
+  function createRow(taskNo) {
+    const tr = document.createElement('tr');
+    const td1 = document.createElement('td');
+    td1.className = 'drop-cell';
+    td1.textContent = taskNo;
+    const td2 = document.createElement('td');
+    td2.textContent = '';
+    const td3 = document.createElement('td');
+    td3.className = 'drop-cell';
+    td3.textContent = '';
+    tr.appendChild(td1);
+    tr.appendChild(td2);
+    tr.appendChild(td3);
+    tbody.appendChild(tr);
+    const cells = { tr, td1, td2, td3 };
+    tr._cells = cells;
+    return cells;
+  }
+
+  btnAddRow.addEventListener('click', () => {
+    const nextNo = tbody.rows.length + 1;
+    const cells = createRow(String(nextNo));
+    pendingCell = cells;
+    fileInput.click();
+  });
+
+  function ensureRenderFrame() {
+    return new Promise((resolve) => {
+      if (renderFrame && renderFrame._ready) { resolve(renderFrame); return; }
+      if (!renderFrame) {
+        renderFrame = document.createElement('iframe');
+        renderFrame.src = 'tareas.html';
+        renderFrame.style.cssText = 'position:fixed;left:-9999px;top:0;width:800px;height:600px;border:0;';
+        renderFrame._ready = false;
+        renderFrame.onload = () => { renderFrame._ready = true; resolve(renderFrame); };
+        document.body.appendChild(renderFrame);
+      } else {
+        renderFrame.onload = () => { renderFrame._ready = true; resolve(renderFrame); };
+      }
+    });
+  }
+
+  function renderTaskImage(data) {
+    return new Promise((resolve) => {
+      ensureRenderFrame().then((iframe) => {
+        const id = Math.random().toString(36).slice(2);
+        const handler = (e) => {
+          if (e.data && e.data.type === 'taskImage' && e.data.id === id) {
+            window.removeEventListener('message', handler);
+            resolve(e.data);
+          }
+        };
+        window.addEventListener('message', handler);
+        iframe.contentWindow.postMessage({ type: 'loadTask', id, data }, '*');
+      });
+    });
+  }
+
+  fileInput.addEventListener('change', async (e) => {
+    const files = Array.from(e.target.files || []);
+    if (pendingCell) {
+      if (files.length > 0) {
+        const file = files[0];
+        let title = file.name;
+        let data = null;
+        try {
+          const text = await file.text();
+          data = JSON.parse(text);
+          if (data && data.taskName) title = data.taskName;
+        } catch (err) {}
+        const cell = pendingCell;
+        cell.td2.textContent = title;
+        cell.tr._task = { data, title };
+        // render image into third column
+        if (data) {
+          renderTaskImage(data).then((res) => {
+            const img = document.createElement('img');
+            img.src = res.url;
+            img.className = 'task-img';
+            cell.td3.innerHTML = '';
+            cell.td3.appendChild(img);
+            attachImageHover(img);
+          });
+        }
+      }
+      pendingCell = null;
+    } else {
+      for (const file of files) {
+        const nextNo = tbody.rows.length + 1;
+        const cells = createRow(String(nextNo));
+        let title = file.name;
+        let data = null;
+        try {
+          const text = await file.text();
+          data = JSON.parse(text);
+          if (data && data.taskName) title = data.taskName;
+        } catch (err) {}
+        cells.td2.textContent = title;
+        cells.tr._task = { data, title };
+        if (data) {
+          renderTaskImage(data).then((res) => {
+            const img = document.createElement('img');
+            img.src = res.url;
+            img.className = 'task-img';
+            cells.td3.innerHTML = '';
+            cells.td3.appendChild(img);
+            attachImageHover(img);
+          });
+        }
+      }
+    }
+    fileInput.value = '';
+  });
+
+  function wrapText(ctx, text, x, y, maxWidth, lineHeight) {
+    const words = (text || '').split(/\s+/);
+    let line = '';
+    let curY = y;
+    for (const w of words) {
+      const test = line ? line + ' ' + w : w;
+      if (ctx.measureText(test).width > maxWidth && line) {
+        ctx.fillText(line, x, curY);
+        line = w;
+        curY += lineHeight;
+      } else {
+        line = test;
+      }
+    }
+    if (line) { ctx.fillText(line, x, curY); curY += lineHeight; }
+    return curY;
+  }
+
+  btnPres.addEventListener('click', async () => {
+    const rows = Array.from(tbody.querySelectorAll('tr'));
+    const taskRows = rows.filter(r => r._task && r._task.data);
+    if (taskRows.length === 0) { alert('No hay tareas insertadas.'); return; }
+
+    const results = [];
+    for (const r of taskRows) {
+      results.push(await renderTaskImage(r._task.data));
+    }
+
+    const pad = 20;
+    const imgW = 360;
+    const noteW = 320;
+    const canvasW = pad * 3 + imgW + noteW;
+    const imgs = await Promise.all(results.map(res => new Promise((resolve) => {
+      const im = new Image();
+      im.onload = () => resolve(im);
+      im.src = res.url;
+    })));
+
+    const blocks = results.map((res, i) => {
+      const im = imgs[i];
+      const scale = imgW / im.width;
+      const imgH = im.height * scale;
+      const tmpCanvas = document.createElement('canvas');
+      const tctx = tmpCanvas.getContext('2d');
+      tctx.font = '14px Arial';
+      const words = (res.notes || '').split(/\s+/);
+      let lines = 1;
+      let line = '';
+      for (const w of words) {
+        const test = line ? line + ' ' + w : w;
+        if (tctx.measureText(test).width > noteW && line) { lines++; line = w; }
+        else line = test;
+      }
+      const noteH = lines * 18 + 10;
+      const blockH = Math.max(imgH, noteH) + 50;
+      return { res, im, imgH, noteH, blockH, scale };
+    });
+    const totalH = blocks.reduce((acc, b) => acc + b.blockH + pad, pad);
+
+    const canvas = document.createElement('canvas');
+    canvas.width = canvasW;
+    canvas.height = totalH;
+    const ctx = canvas.getContext('2d');
+    ctx.fillStyle = '#ffffff';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    ctx.fillStyle = '#000000';
+
+    let y = pad;
+    blocks.forEach((b) => {
+      ctx.font = 'bold 22px Arial';
+      ctx.fillStyle = '#000000';
+      ctx.fillText(String(b.res.taskCounter || ''), pad, y + 20);
+      y += 30;
+      const imgH = b.imgH;
+      ctx.drawImage(b.im, pad, y, imgW, imgH);
+      ctx.font = '14px Arial';
+      wrapText(ctx, b.res.notes || '', pad + imgW + 20, y + 16, noteW, 18);
+      y += Math.max(imgH, b.noteH) + pad + 20;
+    });
+
+    const url = canvas.toDataURL('image/png');
+    let overlay = document.getElementById('previewOverlay');
+    if (!overlay) {
+      overlay = document.createElement('div');
+      overlay.id = 'previewOverlay';
+      overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.8);display:flex;align-items:center;justify-content:center;z-index:9999;';
+      const box = document.createElement('div');
+      box.style.cssText = 'background:#fff;padding:10px;border-radius:8px;max-width:95vw;max-height:95vh;overflow:auto;position:relative;';
+      const img = document.createElement('img');
+      img.id = 'previewImg';
+      img.style.cssText = 'max-width:100%;height:auto;display:block;';
+      const close = document.createElement('button');
+      close.textContent = 'Cerrar';
+      close.style.cssText = 'position:absolute;top:5px;right:5px;';
+      close.addEventListener('click', () => overlay.remove());
+      box.appendChild(close);
+      box.appendChild(img);
+      overlay.appendChild(box);
+      document.body.appendChild(overlay);
+    }
+    document.getElementById('previewImg').src = url;
+  });
+</script>
+</body>
+</html>
