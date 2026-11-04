@@ -279,17 +279,17 @@
       ctx.fillText('SESION: ' + dateStr, pad, y + 14);
       y += 14;
       const numStr = String(b.res.rowNumber || '');
-      ctx.font = 'bold 22px Arial';
-      ctx.fillStyle = '#000000';
-      const numW = ctx.measureText(numStr).width;
-      ctx.fillText(numStr, pad, y + 22);
-      const imgX = pad + numW + 12;
+      const imgX = pad;
       const cropTop = 150;
       const imgH = b.im.height - cropTop;
       ctx.drawImage(b.im, 0, cropTop, b.im.width, imgH, imgX, y, b.im.width, imgH);
-      ctx.font = '14px Arial';
+      ctx.font = 'bold 22px Arial';
+      ctx.fillStyle = '#000000';
       const notesX = imgX + b.im.width + 12;
-      wrapText(ctx, b.res.notes || '', notesX, y + 14, noteW, 18);
+      const numW = ctx.measureText(numStr).width;
+      ctx.fillText(numStr, notesX, y + 22);
+      ctx.font = '14px Arial';
+      wrapText(ctx, b.res.notes || '', notesX + numW + 8, y + 14, noteW, 18);
       y += Math.max(imgH, b.noteH, 22) + pad + 40;
     });
 
