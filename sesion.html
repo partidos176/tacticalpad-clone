@@ -287,7 +287,7 @@
       ctx.fillStyle = '#000000';
       const notesX = imgX + b.im.width + 12;
       const numW = ctx.measureText(numStr).width;
-      ctx.fillText(numStr, notesX, y + 22);
+      ctx.fillText(numStr, notesX, y + 14);
       ctx.font = '14px Arial';
       wrapText(ctx, b.res.notes || '', notesX + numW + 8, y + 14, noteW, 18);
       y += Math.max(imgH, b.noteH, 22) + pad + 40;
