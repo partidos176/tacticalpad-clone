@@ -286,9 +286,6 @@
       const scale = 0.85;
       const drawW = b.im.width * scale;
       const drawH = imgH * scale;
-      const bgColor = (b.idx % 2 === 0) ? '#e8e8e8' : '#d0e0f0';
-      ctx.fillStyle = bgColor;
-      ctx.fillRect(imgX - 6, y - 6, drawW + 12, drawH + 12);
       ctx.drawImage(b.im, 0, cropTop, b.im.width, imgH, imgX, y, drawW, drawH);
       ctx.font = '14px Arial';
       ctx.fillStyle = '#000000';
