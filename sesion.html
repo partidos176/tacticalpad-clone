@@ -25,7 +25,7 @@
       <button id="btnAddRow">Añadir tarea</button>
       <input type="file" id="fileOpen" accept="application/json" hidden />
       <button id="btnSaveProject">Guardar</button>
-      <button id="btnExportImage">Exportar Imagen</button>
+      <button id="btnExportImage">Exportar</button>
       <button id="btnPresentation">Presentación</button>
     </div>
   </header>
@@ -34,7 +34,7 @@
     <input type="date" id="sessionDate" style="margin-bottom:8px;" />
     <table class="task-table" id="taskTable">
       <thead>
-        <tr><th>Tarea</th><th>Nombre</th><th>Imagen</th></tr>
+        <tr><th>TAREA</th><th>NOMBRE</th><th>IMAGEN</th></tr>
       </thead>
       <tbody id="taskTableBody"></tbody>
     </table>
@@ -62,12 +62,12 @@
   let renderFrame = null;
 
   function attachImageHover(img) {
-    img.addEventListener('mouseenter', () => {
+    img.addEventListener('mouseenter', (e) => {
       let preview = document.getElementById('imgPreviewFloat');
       if (!preview) {
         preview = document.createElement('div');
         preview.id = 'imgPreviewFloat';
-        preview.style.cssText = 'position:fixed;z-index:9999;pointer-events:none;background:#fff;padding:4px;border-radius:6px;box-shadow:0 4px 12px rgba(0,0,0,.5);display:none;';
+        preview.style.cssText = 'position:fixed;z-index:9999;pointer-events:none;background:transparent;padding:0;border-radius:6px;box-shadow:0 4px 12px rgba(0,0,0,.5);display:none;';
         const pimg = document.createElement('img');
         pimg.style.cssText = 'max-width:420px;max-height:320px;display:block;';
         preview.appendChild(pimg);
@@ -75,12 +75,30 @@
       }
       preview.querySelector('img').src = img.src;
       preview.style.display = 'block';
+      const pw = preview.offsetWidth || 420;
+      const ph = preview.offsetHeight || 320;
+      let left = e.clientX + 16;
+      let top;
+      if (e.clientY > window.innerHeight / 2) { top = 8; } else { top = e.clientY + 16; if (top + ph > window.innerHeight) top = e.clientY - ph - 16; }
+      if (left + pw > window.innerWidth) left = e.clientX - pw - 16;
+      if (left < 0) left = 8;
+      if (top < 0) top = 8;
+      preview.style.left = left + 'px';
+      preview.style.top = top + 'px';
     });
     img.addEventListener('mousemove', (e) => {
       const preview = document.getElementById('imgPreviewFloat');
       if (preview) {
-        preview.style.left = (e.clientX + 16) + 'px';
-        preview.style.top = (e.clientY + 16) + 'px';
+        const pw = preview.offsetWidth || 420;
+        const ph = preview.offsetHeight || 320;
+        let left = e.clientX + 16;
+        let top;
+        if (e.clientY > window.innerHeight / 2) { top = 8; } else { top = e.clientY + 16; if (top + ph > window.innerHeight) top = e.clientY - ph - 16; }
+        if (left + pw > window.innerWidth) left = e.clientX - pw - 16;
+        if (left < 0) left = 8;
+        if (top < 0) top = 8;
+        preview.style.left = left + 'px';
+        preview.style.top = top + 'px';
       }
     });
     img.addEventListener('mouseleave', () => {
@@ -276,7 +294,7 @@
     ctx.font = 'bold 18px Arial';
     ctx.fillStyle = '#000000';
     ctx.fillText('SESION: ' + dateStr, pad, y + 14);
-    y += 14;
+    y += 34;
     blocks.forEach((b) => {
       const numStr = String(b.res.rowNumber || '');
       const imgX = pad;
