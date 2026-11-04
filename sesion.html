@@ -271,13 +271,13 @@
     ctx.fillRect(0, 0, canvas.width, canvas.height);
     ctx.fillStyle = '#000000';
 
-    let y = 8;
+    let y = 0;
     blocks.forEach((b) => {
       const dateStr = getSessionDateStr();
       ctx.font = 'bold 18px Arial';
       ctx.fillStyle = '#000000';
-      ctx.fillText('SESION: ' + dateStr, pad, y + 18);
-      y += 18;
+      ctx.fillText('SESION: ' + dateStr, pad, y + 14);
+      y += 14;
       const numStr = String(b.res.rowNumber || '');
       ctx.font = 'bold 22px Arial';
       ctx.fillStyle = '#000000';
