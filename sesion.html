@@ -245,7 +245,7 @@
 
     const blocks = results.map((res, i) => {
       const im = imgs[i];
-      const imgH = im.height - 150;
+      const imgH = (im.height - 150) * 0.85;
       const tmpCanvas = document.createElement('canvas');
       const tctx = tmpCanvas.getContext('2d');
       tctx.font = '14px Arial';
@@ -282,15 +282,18 @@
       const imgX = pad;
       const cropTop = 150;
       const imgH = b.im.height - cropTop;
-      ctx.drawImage(b.im, 0, cropTop, b.im.width, imgH, imgX, y, b.im.width, imgH);
+      const scale = 0.85;
+      const drawW = b.im.width * scale;
+      const drawH = imgH * scale;
+      ctx.drawImage(b.im, 0, cropTop, b.im.width, imgH, imgX, y, drawW, drawH);
       ctx.font = 'bold 22px Arial';
       ctx.fillStyle = '#000000';
-      const notesX = imgX + b.im.width + 12;
+      const notesX = imgX + (b.im.width * 0.85) + 12;
       const numW = ctx.measureText(numStr).width;
-      ctx.fillText(numStr, notesX, y + 18);
+      ctx.fillText(numStr, notesX, y + 28);
       ctx.font = '14px Arial';
-      wrapText(ctx, b.res.notes || '', notesX + numW + 8, y + 11, noteW, 18);
-      y += Math.max(imgH, b.noteH, 22) + pad + 40;
+      wrapText(ctx, b.res.notes || '', notesX + numW + 8, y + 21, noteW, 18);
+      y += Math.max(drawH, b.noteH, 22) + pad + 40;
     });
 
     const url = canvas.toDataURL('image/png');
