@@ -286,6 +286,8 @@
       const imgX = pad + numW + 12;
       const cropTop = 60;
       const imgH = b.im.height - cropTop;
+      ctx.fillStyle = '#e8e8e8';
+      ctx.fillRect(imgX - 4, y - 4, b.im.width + 8, imgH + 8);
       ctx.drawImage(b.im, 0, cropTop, b.im.width, imgH, imgX, y, b.im.width, imgH);
       ctx.font = '14px Arial';
       const notesX = imgX + b.im.width + 12;
