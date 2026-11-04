@@ -1676,6 +1676,7 @@ document.getElementById('btnSaveProject').addEventListener('click', async ()=>{
   const name = (state.taskName || '').trim();
   if (!name){ alert('No se puede guardar sin nombre de tarea.'); return; }
   const safe = name.replace(/[<>:"/\\|?*]/g,'_');
+  const fileName = state.taskCounter + '_' + safe;
   const notesVal = (document.getElementById('notes')?.value || '');
   const data={ sport:state.sport, pitchType:state.pitchType, taskCounter:state.taskCounter, taskName:state.taskName, notes: notesVal, activeBoardId: state.activeBoardId, home:state.home, away:state.away, boards:state.boards };
 
@@ -1708,7 +1709,7 @@ document.getElementById('btnSaveProject').addEventListener('click', async ()=>{
   // Otherwise ask where to save and remember handle for future overwrites
   if (window.showSaveFilePicker){
     try {
-      const handle = await window.showSaveFilePicker({ suggestedName: safe + '.json', types: [{ description: 'JSON', accept: { 'application/json': ['.json'] } }] });
+      const handle = await window.showSaveFilePicker({ suggestedName: fileName + '.json', types: [{ description: 'JSON', accept: { 'application/json': ['.json'] } }] });
       currentFileHandle = handle;
       currentFileHandle._origNum = state.taskCounter;
       const writable = await handle.createWritable();
@@ -1728,7 +1729,7 @@ document.getElementById('btnSaveProject').addEventListener('click', async ()=>{
   // Fallback: download
   const blob=new Blob([JSON.stringify(data,null,2)],{type:'application/json'});
   const url=URL.createObjectURL(blob);
-  const a=document.createElement('a'); a.href=url; a.download=safe+'.json'; a.click();
+  const a=document.createElement('a'); a.href=url; a.download=fileName+'.json'; a.click();
   URL.revokeObjectURL(url);
   const reg = JSON.parse(localStorage.getItem('savedTaskNumbers') || '[]');
   if (!reg.includes(state.taskCounter)) reg.push(state.taskCounter);
