@@ -241,7 +241,7 @@
       im.src = res.url;
     })));
     const maxImgW = Math.max(...imgs.map(im => im.width));
-    const canvasW = pad * 3 + maxImgW + noteW;
+    const canvasW = pad * 4 + maxImgW + noteW + 80;
 
     const blocks = results.map((res, i) => {
       const im = imgs[i];
@@ -278,15 +278,18 @@
       ctx.fillStyle = '#000000';
       ctx.fillText('SESION: ' + dateStr, pad, y + 18);
       y += 26;
+      const numStr = String(b.res.rowNumber || '');
       ctx.font = 'bold 22px Arial';
       ctx.fillStyle = '#000000';
-      ctx.fillText(String(b.res.rowNumber || ''), pad, y + 22);
-      y += 34;
-      const imgH = b.imgH;
-      ctx.drawImage(b.im, pad, y);
+      const numW = ctx.measureText(numStr).width;
+      ctx.fillText(numStr, pad, y + 22);
+      const imgX = pad + numW + 12;
+      ctx.drawImage(b.im, imgX, y);
+      const imgH = b.im.height;
       ctx.font = '14px Arial';
-      wrapText(ctx, b.res.notes || '', pad + b.im.width + 10, y + 14, noteW, 18);
-      y += Math.max(imgH, b.noteH) + pad + 40;
+      const notesX = imgX + b.im.width + 12;
+      wrapText(ctx, b.res.notes || '', notesX, y + 14, noteW, 18);
+      y += Math.max(imgH, b.noteH, 22) + pad + 40;
     });
 
     const url = canvas.toDataURL('image/png');
