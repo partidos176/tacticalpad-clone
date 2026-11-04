@@ -210,6 +210,7 @@
   }
 
   btnPres.addEventListener('click', async () => {
+    try {
     const rows = Array.from(tbody.querySelectorAll('tr'));
     const taskRows = rows.filter(r => r._task && r._task.data);
     if (taskRows.length === 0) { alert('No hay tareas insertadas.'); return; }
@@ -221,13 +222,13 @@
 
     const pad = 24;
     const noteW = 300;
-    const maxImgW = Math.max(...imgs.map(im => im.width));
-    const canvasW = pad * 3 + maxImgW + noteW;
     const imgs = await Promise.all(results.map(res => new Promise((resolve) => {
       const im = new Image();
       im.onload = () => resolve(im);
       im.src = res.url;
     })));
+    const maxImgW = Math.max(...imgs.map(im => im.width));
+    const canvasW = pad * 3 + maxImgW + noteW;
 
     const blocks = results.map((res, i) => {
       const im = imgs[i];
@@ -291,6 +292,7 @@
       document.body.appendChild(overlay);
     }
     document.getElementById('previewImg').src = url;
+    } catch (e) { alert('Error presentación: ' + (e && e.message ? e.message : e)); console.error(e); }
   });
 </script>
 </body>
