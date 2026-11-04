@@ -220,9 +220,9 @@
     }
 
     const pad = 24;
-    const imgW = 240;
-    const noteW = 260;
-    const canvasW = pad * 3 + imgW + noteW;
+    const noteW = 300;
+    const maxImgW = Math.max(...imgs.map(im => im.width));
+    const canvasW = pad * 3 + maxImgW + noteW;
     const imgs = await Promise.all(results.map(res => new Promise((resolve) => {
       const im = new Image();
       im.onload = () => resolve(im);
@@ -231,8 +231,7 @@
 
     const blocks = results.map((res, i) => {
       const im = imgs[i];
-      const scale = imgW / im.width;
-      const imgH = im.height * scale;
+      const imgH = im.height;
       const tmpCanvas = document.createElement('canvas');
       const tctx = tmpCanvas.getContext('2d');
       tctx.font = '14px Arial';
@@ -265,9 +264,9 @@
       ctx.fillText(String(b.res.taskCounter || ''), pad, y + 22);
       y += 34;
       const imgH = b.imgH;
-      ctx.drawImage(b.im, pad, y, imgW, imgH);
+      ctx.drawImage(b.im, pad, y);
       ctx.font = '14px Arial';
-      wrapText(ctx, b.res.notes || '', pad + imgW + 20, y + 16, noteW, 18);
+      wrapText(ctx, b.res.notes || '', pad + maxImgW + 20, y + 16, noteW, 18);
       y += Math.max(imgH, b.noteH) + pad + 40;
     });
 
