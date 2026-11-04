@@ -267,7 +267,7 @@
       const imgH = b.imgH;
       ctx.drawImage(b.im, pad, y);
       ctx.font = '14px Arial';
-      wrapText(ctx, b.res.notes || '', pad + maxImgW + 20, y + 16, noteW, 18);
+      wrapText(ctx, b.res.notes || '', pad + maxImgW + 20, y + 14, noteW, 18);
       y += Math.max(imgH, b.noteH) + pad + 40;
     });
 
