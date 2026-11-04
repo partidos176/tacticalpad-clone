@@ -246,7 +246,7 @@
       }
       const noteH = lines * 18 + 10;
       const blockH = Math.max(imgH, noteH) + 70;
-      return { res, im, imgH, noteH, blockH, scale };
+      return { res, im, imgH, noteH, blockH };
     });
     const totalH = blocks.reduce((acc, b) => acc + b.blockH + pad, pad);
 
