@@ -161,7 +161,7 @@
         } catch (err) {}
         const cell = pendingCell;
         cell.td2.textContent = title;
-        cell.tr._task = { data, title };
+        cell.tr._task = { data, title, number: cell.td1.textContent };
         // render image into third column
         if (data) {
           renderTaskImage(data).then((res) => {
@@ -187,7 +187,7 @@
           if (data && data.taskName) title = data.taskName;
         } catch (err) {}
         cells.td2.textContent = title;
-        cells.tr._task = { data, title };
+        cells.tr._task = { data, title, number: nextNo };
         if (data) {
           renderTaskImage(data).then((res) => {
             const img = document.createElement('img');
