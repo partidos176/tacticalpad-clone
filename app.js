@@ -1630,7 +1630,7 @@ function openProjectData(data){
     if (typeof data.taskName === 'string') state.taskName = data.taskName;
     if (typeof data.notes === 'string'){ const n=document.getElementById('notes'); if (n) n.value = data.notes; }
     renderTaskUI();
-    state.activeBoardId=state.boards.length?state.boards[0].id:null;
+    if (data.activeBoardId && state.boards.some(b=>b.id===data.activeBoardId)) state.activeBoardId = data.activeBoardId; else state.activeBoardId = state.boards.length ? state.boards[0].id : null;
     state.currentFrame=0;
     const hn2=document.getElementById('homeName'); if (hn2) hn2.value=state.home.name;
     const hc2=document.getElementById('homeColor'); if (hc2) hc2.value=state.home.color;
@@ -1677,7 +1677,7 @@ document.getElementById('btnSaveProject').addEventListener('click', async ()=>{
   if (!name){ alert('No se puede guardar sin nombre de tarea.'); return; }
   const safe = name.replace(/[<>:"/\\|?*]/g,'_');
   const notesVal = (document.getElementById('notes')?.value || '');
-  const data={ sport:state.sport, pitchType:state.pitchType, taskCounter:state.taskCounter, taskName:state.taskName, notes: notesVal, home:state.home, away:state.away, boards:state.boards };
+  const data={ sport:state.sport, pitchType:state.pitchType, taskCounter:state.taskCounter, taskName:state.taskName, notes: notesVal, activeBoardId: state.activeBoardId, home:state.home, away:state.away, boards:state.boards };
 
   // Check for duplicate task number among saved tasks
   const registry = JSON.parse(localStorage.getItem('savedTaskNumbers') || '[]');
