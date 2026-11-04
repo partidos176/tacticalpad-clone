@@ -293,7 +293,7 @@
       ctx.fillText(numStr, notesX, y + 21);
       ctx.font = '14px Arial';
       wrapText(ctx, b.res.notes || '', notesX + numW + 8, y + 21, noteW, 18);
-      y += Math.max(drawH, b.noteH, 22) + pad + 40;
+      y += Math.max(drawH, b.noteH, 22) + 8;
     });
 
     const url = canvas.toDataURL('image/png');
