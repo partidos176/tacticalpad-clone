@@ -31,7 +31,9 @@
   </header>
   <div class="sesion-wrap">
     <h2 style="color:#fff;">Sesión de tareas</h2>
-    <p style="color:#aaa;">Columna 1: número de tarea. Columna 2: nombre. Columna 3: imagen de la tarea (pasa el ratón para ampliar).</p>
+    <div style="margin-bottom:8px;">
+      <label style="color:#fff;">Fecha: <input type="date" id="sessionDate" /></label>
+    </div>
     <table class="task-table" id="taskTable">
       <thead>
         <tr><th>Tarea</th><th>Nombre</th><th>Imagen</th></tr>
@@ -45,6 +47,18 @@
   const tbody = document.getElementById('taskTableBody');
   const btnAddRow = document.getElementById('btnAddRow');
   const btnPres = document.getElementById('btnPresentation');
+  const dateInput = document.getElementById('sessionDate');
+  if (dateInput && !dateInput.value) {
+    const d = new Date();
+    dateInput.value = d.toISOString().slice(0,10);
+  }
+  function getSessionDateStr() {
+    const v = (dateInput && dateInput.value) || '';
+    if (!v) return '';
+    const parts = v.split('-');
+    if (parts.length !== 3) return v;
+    return parts[2] + '/' + parts[1] + '/' + parts[0].slice(2);
+  }
 
   let pendingCell = null;
   let renderFrame = null;
@@ -260,6 +274,11 @@
 
     let y = pad;
     blocks.forEach((b) => {
+      const dateStr = getSessionDateStr();
+      ctx.font = 'bold 18px Arial';
+      ctx.fillStyle = '#000000';
+      ctx.fillText('SESION: ' + dateStr, pad, y + 18);
+      y += 26;
       ctx.font = 'bold 22px Arial';
       ctx.fillStyle = '#000000';
       ctx.fillText(String(b.res.taskCounter || ''), pad, y + 22);
